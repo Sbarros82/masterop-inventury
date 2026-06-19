@@ -1,7 +1,14 @@
 {
   "assets": [],
   "locations": [],
-  "responsibles": [],
+  "responsibles": [
+    {
+      "id": "resp-1781896847580",
+      "name": "Sergio Test",
+      "email": "test@masterop.com",
+      "department": "TI"
+    }
+  ],
   "movements": [],
   "maintenances": [],
   "inventories": []

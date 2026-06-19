@@ -35,10 +35,37 @@ import { InventoryView } from './components/InventoryView';
 import { LocationsAndResponsiblesView } from './components/LocationsAndResponsiblesView';
 import { AuthBadge } from './components/AuthBadge';
 
+// Local Storage Driver for Offline/Vercel support
+import {
+  localGetAssets,
+  localAddAsset,
+  localUpdateAsset,
+  localDeleteAsset,
+  localGetLocations,
+  localAddLocation,
+  localGetResponsibles,
+  localAddResponsible,
+  localGetMovements,
+  localAddMovement,
+  localGetMaintenances,
+  localAddMaintenance,
+  localUpdateMaintenance,
+  localGetInventories,
+  localStartInventory,
+  localScanAsset,
+  localFinishInventory,
+  localGetStats
+} from './utils/localDb';
+
 export default function App() {
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Connection mode (Vercel automatic bypass / offline status indicator)
+  const [localMode, setLocalMode] = useState<boolean>(() => {
+    return window.location.hostname.includes('vercel.app') || window.location.hostname.includes('github.io');
+  });
 
   // Authentication simulator
   const [currentUser, setCurrentUser] = useState<UserType>({ 
@@ -72,7 +99,49 @@ export default function App() {
   async function refreshAllData() {
     setIsLoading(true);
     setErrorBanner('');
+
+    const isVercelHost = window.location.hostname.includes('vercel.app') || window.location.hostname.includes('github.io');
+
+    if (localMode || isVercelHost) {
+      try {
+        setAssets(localGetAssets());
+        setLocations(localGetLocations());
+        setResponsibles(localGetResponsibles());
+        setMovements(localGetMovements());
+        setMaintenances(localGetMaintenances());
+        setInventories(localGetInventories());
+        setStats(localGetStats());
+        setLocalMode(true);
+      } catch (err) {
+        console.error("Local data load fail:", err);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
     try {
+      // Health check to test whether API is real JSON instead of static fallback page
+      try {
+        const check = await fetch('/api/assets');
+        const ct = check.headers.get('content-type') || '';
+        if (!check.ok || !ct.includes('application/json')) {
+          throw new Error('API offline or main app assets file is treated as web fallback');
+        }
+      } catch (probeError) {
+        console.warn("REST API is offline or not configured. Automatically enabling self-contained browser Local Database mode.");
+        setLocalMode(true);
+        setAssets(localGetAssets());
+        setLocations(localGetLocations());
+        setResponsibles(localGetResponsibles());
+        setMovements(localGetMovements());
+        setMaintenances(localGetMaintenances());
+        setInventories(localGetInventories());
+        setStats(localGetStats());
+        setIsLoading(false);
+        return;
+      }
+
       const [
         resAssets, 
         resLocations, 
@@ -91,16 +160,31 @@ export default function App() {
         fetch('/api/dashboard').then(r => r.json())
       ]);
 
-      setAssets(resAssets);
-      setLocations(resLocations);
-      setResponsibles(resResponsibles);
-      setMovements(resMovements);
-      setMaintenances(resMaintenances);
-      setInventories(resInventories);
-      setStats(resStats);
+      setAssets(resAssets || []);
+      setLocations(resLocations || []);
+      setResponsibles(resResponsibles || []);
+      setMovements(resMovements || []);
+      setMaintenances(resMaintenances || []);
+      setInventories(resInventories || []);
+      setStats(resStats || {
+        totalAssets: 0,
+        totalValue: 0,
+        maintenanceCount: 0,
+        pendingMovementsCount: 0,
+        categoryDistribution: { furniture: 0, it: 0, machinery: 0, vehicles: 0, other: 0 },
+        statusDistribution: { active: 0, maintenance: 0, transferred: 0, retired: 0 },
+        monthlyAcquisitions: []
+      });
     } catch (err) {
-      console.error("Error retrieving dataset: ", err);
-      setErrorBanner('Houve uma falha na comunicação com o servidor de dados patrimoniais.');
+      console.error("Error retrieving dataset fallback to local mode: ", err);
+      setLocalMode(true);
+      setAssets(localGetAssets());
+      setLocations(localGetLocations());
+      setResponsibles(localGetResponsibles());
+      setMovements(localGetMovements());
+      setMaintenances(localGetMaintenances());
+      setInventories(localGetInventories());
+      setStats(localGetStats());
     } finally {
       setIsLoading(false);
     }
@@ -109,11 +193,16 @@ export default function App() {
   // Initial load
   useEffect(() => {
     refreshAllData();
-  }, []);
+  }, [localMode]);
 
   // Post Asset
   const handleAddAsset = async (newAssetData: Omit<Asset, 'id'>) => {
     try {
+      if (localMode) {
+        localAddAsset(newAssetData);
+        await refreshAllData();
+        return;
+      }
       const res = await fetch('/api/assets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -130,6 +219,11 @@ export default function App() {
   // Update Asset
   const handleUpdateAsset = async (id: string, updatedFields: Partial<Asset>) => {
     try {
+      if (localMode) {
+        localUpdateAsset(id, updatedFields);
+        await refreshAllData();
+        return;
+      }
       const res = await fetch(`/api/assets/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -146,6 +240,11 @@ export default function App() {
   // Delete Asset
   const handleDeleteAsset = async (id: string) => {
     try {
+      if (localMode) {
+        localDeleteAsset(id);
+        await refreshAllData();
+        return;
+      }
       const res = await fetch(`/api/assets/${id}`, {
         method: 'DELETE'
       });
@@ -160,6 +259,11 @@ export default function App() {
   // Register movement
   const handleRegisterMovement = async (movementData: { assetId: string, toLocationId: string, toResponsibleId: string, reason: string }) => {
     try {
+      if (localMode) {
+        localAddMovement(movementData);
+        await refreshAllData();
+        return;
+      }
       const res = await fetch('/api/movements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -176,6 +280,11 @@ export default function App() {
   // Add Maintenance
   const handleAddMaintenance = async (maintData: any) => {
     try {
+      if (localMode) {
+        localAddMaintenance(maintData);
+        await refreshAllData();
+        return;
+      }
       const res = await fetch('/api/maintenances', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -192,6 +301,11 @@ export default function App() {
   // Finish/Update Maintenance
   const handleUpdateMaintenance = async (id: string, updateFields: { status: 'completed' | 'canceled'; endDate?: string; cost?: number }) => {
     try {
+      if (localMode) {
+        localUpdateMaintenance(id, updateFields);
+        await refreshAllData();
+        return;
+      }
       const res = await fetch(`/api/maintenances/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -208,6 +322,11 @@ export default function App() {
   // Start Inventory
   const handleStartInventory = async (title: string) => {
     try {
+      if (localMode) {
+        localStartInventory(title);
+        await refreshAllData();
+        return;
+      }
       const res = await fetch('/api/inventories/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -227,6 +346,11 @@ export default function App() {
   // Scan item physically
   const handleScanAsset = async (tag: string, observations?: string) => {
     try {
+      if (localMode) {
+        localScanAsset(tag, observations);
+        await refreshAllData();
+        return;
+      }
       const res = await fetch('/api/inventories/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -245,6 +369,11 @@ export default function App() {
   // Stop / Finish current inventory
   const handleFinishInventory = async (inventoryId: string) => {
     try {
+      if (localMode) {
+        localFinishInventory(inventoryId);
+        await refreshAllData();
+        return;
+      }
       const res = await fetch('/api/inventories/finish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -261,6 +390,11 @@ export default function App() {
   // Add custom physical Location
   const handleAddLocation = async (locData: Omit<Location, 'id'>) => {
     try {
+      if (localMode) {
+        localAddLocation(locData);
+        await refreshAllData();
+        return;
+      }
       const res = await fetch('/api/locations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -277,6 +411,11 @@ export default function App() {
   // Add custom Responsible guardian
   const handleAddResponsible = async (respData: Omit<Responsible, 'id'>) => {
     try {
+      if (localMode) {
+        localAddResponsible(respData);
+        await refreshAllData();
+        return;
+      }
       const res = await fetch('/api/responsibles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -393,9 +532,13 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-[10px] font-bold uppercase tracking-wider">
+            <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+              localMode 
+                ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+            }`}>
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Ambiente Seguro</span>
+              <span>{localMode ? 'Banco Local (Navegador)' : 'Sincronizado (Servidor)'}</span>
             </div>
 
             {/* Quick state reset trigger */}
