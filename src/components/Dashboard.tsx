@@ -50,7 +50,7 @@ export function Dashboard({ stats, onNavigateToTab }: DashboardProps) {
       {/* Upper header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-905">Patrimonium Dashboard</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-905">Masterop Dashboard</h1>
           <p className="text-sm text-slate-500">Indicadores gerais, valor patrimonial e integridade da infraestrutura corporativa.</p>
         </div>
         <div className="text-xs font-mono text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 self-start md:self-auto">

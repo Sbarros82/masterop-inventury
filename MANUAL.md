@@ -1,7 +1,7 @@
-# Manual de Uso do Patrimonium ERP
+# Manual de Uso do Masterop Patrimonial
 ## Sistema Avançado de Controle Patrimonial e Inventário Físico
 
-Este manual serve como guia de instruções detalhadas para operadores e administradores utilizarem com eficiência todos os módulos do **Patrimonium ERP**, garantindo conformidade, exatidão patrimonial e total controle no ciclo de vida dos bens da empresa.
+Este manual serve como guia de instruções detalhadas para operadores e administradores utilizarem com eficiência todos os módulos do **Masterop Patrimonial**, garantindo conformidade, exatidão patrimonial e total controle no ciclo de vida dos bens da empresa.
 
 ---
 
@@ -18,7 +18,7 @@ Este manual serve como guia de instruções detalhadas para operadores e adminis
 
 ## 1. Conexão e Controle de Banco de Dados
 
-O Patrimonium ERP possui um motor de persistência híbrido altamente seguro, permitindo operações estáveis até mesmo em situações de declínio de conectividade de rede.
+O Masterop Patrimonial possui um motor de persistência híbrido altamente seguro, permitindo operações estáveis até mesmo em situações de declínio de conectividade de rede.
 
 ### 🌐 Alternância Híbrida (Local vs. Cloud)
 Na barra superior do sistema, há um indicador visual dinâmico do estado atual do banco de dados:

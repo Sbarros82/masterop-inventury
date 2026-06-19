@@ -423,7 +423,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Patrimonium ERP Server running on http://localhost:${PORT}`);
+    console.log(`Masterop Patrimonial Server running on http://localhost:${PORT}`);
   });
 }
 

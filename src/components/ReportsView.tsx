@@ -171,7 +171,7 @@ export function ReportsView({ assets, locations, responsibles }: ReportsViewProp
       {/* System Brand Header Visible Only On Printouts */}
       <div className="hidden print-header print:flex items-center justify-between w-full">
         <div>
-          <h1 className="text-xl font-black text-slate-900 tracking-tight">PATRIMONIUM ERP</h1>
+          <h1 className="text-xl font-black text-slate-900 tracking-tight">MASTEROP PATRIMONIAL</h1>
           <p className="text-xs text-slate-500 uppercase tracking-wider font-bold">Relatório Oficial de Bens de Ativo Fixo</p>
         </div>
         <div className="text-right text-xs">

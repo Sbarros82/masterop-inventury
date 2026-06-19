@@ -387,10 +387,10 @@ export default function App() {
         <div className="p-6 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center font-extrabold text-white shadow-lg shadow-indigo-600/30 text-base">
-              P
+              M
             </div>
             <div>
-              <span className="text-base font-extrabold text-white tracking-tight block">Patrimonium ERP</span>
+              <span className="text-base font-extrabold text-white tracking-tight block">Masterop Patrimonial</span>
               <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block">Sistema de Ativos</span>
             </div>
           </div>
