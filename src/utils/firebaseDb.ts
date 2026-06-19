@@ -204,83 +204,135 @@ const INITIAL_DATABASE = {
   inventories: [] as Inventory[]
 };
 
-// Help seed the database with defaults if it is completely empty
-export async function ensureFirebaseSeeded() {
-  const assetsSnap = await getDocs(collection(db, 'assets'));
-  if (assetsSnap.empty) {
-    console.log("Firestore empty! Seeding default MasterOp databases...");
-    const batch = writeBatch(db);
-
-    // Seed responsibles
-    INITIAL_DATABASE.responsibles.forEach(resp => {
-      const dRef = doc(db, 'responsibles', resp.id);
-      batch.set(dRef, resp);
-    });
-
-    // Seed locations
-    INITIAL_DATABASE.locations.forEach(loc => {
-      const dRef = doc(db, 'locations', loc.id);
-      batch.set(dRef, loc);
-    });
-
-    // Seed assets
-    INITIAL_DATABASE.assets.forEach(asset => {
-      const dRef = doc(db, 'assets', asset.id);
-      batch.set(dRef, asset);
-    });
-
-    // Seed movements
-    INITIAL_DATABASE.movements.forEach(mov => {
-      const dRef = doc(db, 'movements', mov.id);
-      batch.set(dRef, mov);
-    });
-
-    // Seed maintenances
-    INITIAL_DATABASE.maintenances.forEach(maint => {
-      const dRef = doc(db, 'maintenances', maint.id);
-      batch.set(dRef, maint);
-    });
-
-    await batch.commit();
-    console.log("Seeding complete!");
-  }
+// Failsafe timeout utility wrapper to avoid infinite loading screens if Firebase is unreachable or blocked
+export function withTimeout<T>(promise: Promise<T>, ms = 4000, errorMsg = 'Tempo limite de conexão excedido. O banco de dados Cloud Firestore não respondeu.'): Promise<T> {
+  let timeoutId: any;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(errorMsg));
+    }, ms);
+  });
+  return Promise.race([promise, timeoutPromise]).then(
+    (result) => {
+      clearTimeout(timeoutId);
+      return result;
+    },
+    (err) => {
+      clearTimeout(timeoutId);
+      throw err;
+    }
+  );
 }
 
-// Read functions
+// Global cached promise to avoid concurrent redundant seeding requests
+let seedPromise: Promise<void> | null = null;
+
+// Help seed the database with defaults if it is completely empty
+export async function ensureFirebaseSeeded(): Promise<void> {
+  if (seedPromise) {
+    return seedPromise;
+  }
+
+  seedPromise = (async () => {
+    try {
+      const snapPromise = getDocs(collection(db, 'assets'));
+      // Wrap the initial connection check with a timeout
+      const assetsSnap = await withTimeout(snapPromise, 3500, 'Sem resposta ao tentar inicializar banco Firestore.');
+      
+      if (assetsSnap.empty) {
+        console.log("Firestore empty! Seeding default MasterOp databases...");
+        const batch = writeBatch(db);
+
+        // Seed responsibles
+        INITIAL_DATABASE.responsibles.forEach(resp => {
+          const dRef = doc(db, 'responsibles', resp.id);
+          batch.set(dRef, resp);
+        });
+
+        // Seed locations
+        INITIAL_DATABASE.locations.forEach(loc => {
+          const dRef = doc(db, 'locations', loc.id);
+          batch.set(dRef, loc);
+        });
+
+        // Seed assets
+        INITIAL_DATABASE.assets.forEach(asset => {
+          const dRef = doc(db, 'assets', asset.id);
+          batch.set(dRef, asset);
+        });
+
+        // Seed movements
+        INITIAL_DATABASE.movements.forEach(mov => {
+          const dRef = doc(db, 'movements', mov.id);
+          batch.set(dRef, mov);
+        });
+
+        // Seed maintenances
+        INITIAL_DATABASE.maintenances.forEach(maint => {
+          const dRef = doc(db, 'maintenances', maint.id);
+          batch.set(dRef, maint);
+        });
+
+        await batch.commit();
+        console.log("Seeding complete!");
+      }
+    } catch (err) {
+      // Clear cache on error so a retry can attempt again
+      seedPromise = null;
+      throw err;
+    }
+  })();
+
+  return seedPromise;
+}
+
+// Read functions wrapped with timeouts
 export async function fbGetAssets(): Promise<Asset[]> {
-  await ensureFirebaseSeeded();
-  const snap = await getDocs(collection(db, 'assets'));
-  return snap.docs.map(doc => doc.data() as Asset);
+  return withTimeout((async () => {
+    await ensureFirebaseSeeded();
+    const snap = await getDocs(collection(db, 'assets'));
+    return snap.docs.map(doc => doc.data() as Asset);
+  })(), 4000, 'Erro ao carregar Ativos do Firestore (Timeout)');
 }
 
 export async function fbGetLocations(): Promise<Location[]> {
-  await ensureFirebaseSeeded();
-  const snap = await getDocs(collection(db, 'locations'));
-  return snap.docs.map(doc => doc.data() as Location);
+  return withTimeout((async () => {
+    await ensureFirebaseSeeded();
+    const snap = await getDocs(collection(db, 'locations'));
+    return snap.docs.map(doc => doc.data() as Location);
+  })(), 4000, 'Erro ao carregar Unidades Administrativas do Firestore (Timeout)');
 }
 
 export async function fbGetResponsibles(): Promise<Responsible[]> {
-  await ensureFirebaseSeeded();
-  const snap = await getDocs(collection(db, 'responsibles'));
-  return snap.docs.map(doc => doc.data() as Responsible);
+  return withTimeout((async () => {
+    await ensureFirebaseSeeded();
+    const snap = await getDocs(collection(db, 'responsibles'));
+    return snap.docs.map(doc => doc.data() as Responsible);
+  })(), 4000, 'Erro ao carregar Responsáveis do Firestore (Timeout)');
 }
 
 export async function fbGetMovements(): Promise<AssetMovement[]> {
-  await ensureFirebaseSeeded();
-  const snap = await getDocs(collection(db, 'movements'));
-  return snap.docs.map(doc => doc.data() as AssetMovement);
+  return withTimeout((async () => {
+    await ensureFirebaseSeeded();
+    const snap = await getDocs(collection(db, 'movements'));
+    return snap.docs.map(doc => doc.data() as AssetMovement);
+  })(), 4000, 'Erro ao carregar Movimentações do Firestore (Timeout)');
 }
 
 export async function fbGetMaintenances(): Promise<Maintenance[]> {
-  await ensureFirebaseSeeded();
-  const snap = await getDocs(collection(db, 'maintenances'));
-  return snap.docs.map(doc => doc.data() as Maintenance);
+  return withTimeout((async () => {
+    await ensureFirebaseSeeded();
+    const snap = await getDocs(collection(db, 'maintenances'));
+    return snap.docs.map(doc => doc.data() as Maintenance);
+  })(), 4000, 'Erro ao carregar Ordens de Manutenção do Firestore (Timeout)');
 }
 
 export async function fbGetInventories(): Promise<Inventory[]> {
-  await ensureFirebaseSeeded();
-  const snap = await getDocs(collection(db, 'inventories'));
-  return snap.docs.map(doc => doc.data() as Inventory);
+  return withTimeout((async () => {
+    await ensureFirebaseSeeded();
+    const snap = await getDocs(collection(db, 'inventories'));
+    return snap.docs.map(doc => doc.data() as Inventory);
+  })(), 4000, 'Erro ao carregar Inventários Clínicos do Firestore (Timeout)');
 }
 
 // Create & update functions
@@ -452,9 +504,9 @@ export async function fbFinishInventory(inventoryId: string): Promise<Inventory>
   return inventory;
 }
 
-export async function fbGetStats(): Promise<DashboardStats> {
-  const assets = await fbGetAssets();
-  const maintenances = await fbGetMaintenances();
+export async function fbGetStats(providedAssets?: Asset[], providedMaintenances?: Maintenance[]): Promise<DashboardStats> {
+  const assets = providedAssets || await fbGetAssets();
+  const maintenances = providedMaintenances || await fbGetMaintenances();
 
   const distributions_cat: Record<AssetCategory, number> = { furniture: 0, it: 0, machinery: 0, vehicles: 0, other: 0 };
   const distributions_status: Record<AssetStatus, number> = { active: 0, maintenance: 0, transferred: 0, retired: 0 };

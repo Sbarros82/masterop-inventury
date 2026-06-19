@@ -144,17 +144,18 @@ export default function App() {
         resResponsibles, 
         resMovements, 
         resMaintenances, 
-        resInventories, 
-        resStats
+        resInventories
       ] = await Promise.all([
         fbGetAssets(),
         fbGetLocations(),
         fbGetResponsibles(),
         fbGetMovements(),
         fbGetMaintenances(),
-        fbGetInventories(),
-        fbGetStats()
+        fbGetInventories()
       ]);
+
+      // Calculate stats instantly on the client using the pre-loaded data
+      const resStats = await fbGetStats(resAssets, resMaintenances);
 
       setAssets(resAssets || []);
       setLocations(resLocations || []);
