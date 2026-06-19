@@ -134,28 +134,32 @@ const INITIAL_DATABASE = {
       name: "Sede Central - Escritório Administrativo",
       building: "Predio Faria Lima",
       floor: "3º Andar",
-      description: "Escritório executivo e departamentos de suporte, Recursos Humanos e Financeiro"
+      description: "Escritório executivo e departamentos de suporte, Recursos Humanos e Financeiro",
+      branch: "Matriz São Paulo"
     },
     {
       id: "loc-2",
       name: "Sala de Servidores TI",
       building: "Predio Faria Lima",
       floor: "Térreo",
-      description: "Infraestrutura crítica de servidores, switches e central de telecom"
+      description: "Infraestrutura crítica de servidores, switches e central de telecom",
+      branch: "Matriz São Paulo"
     },
     {
       id: "loc-3",
       name: "Setor A - Linha de Manufatura",
       building: "Galpão Operacional Principal",
       floor: "Térreo",
-      description: "Área de esteiras de montagem, etiquetagem e despacho"
+      description: "Área de esteiras de montagem, etiquetagem e despacho",
+      branch: "Filial Nordeste"
     },
     {
       id: "loc-4",
       name: "Gabinete da Diretoria",
       building: "Predio Faria Lima",
       floor: "4º Andar",
-      description: "Escritório administrativo da presidência e diretoria executiva"
+      description: "Escritório administrativo da presidência e diretoria executiva",
+      branch: "Matriz São Paulo"
     }
   ] as Location[],
   responsibles: [

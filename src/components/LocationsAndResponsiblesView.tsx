@@ -40,6 +40,7 @@ export function LocationsAndResponsiblesView({
   const [locBuilding, setLocBuilding] = useState('');
   const [locFloor, setLocFloor] = useState('');
   const [locDesc, setLocDesc] = useState('');
+  const [locBranch, setLocBranch] = useState('');
 
   // Responsible Form
   const [respName, setRespName] = useState('');
@@ -66,13 +67,15 @@ export function LocationsAndResponsiblesView({
         name: locName,
         building: locBuilding,
         floor: locFloor,
-        description: locDesc
+        description: locDesc,
+        branch: locBranch || 'Matriz'
       });
       setIsLocModalOpen(false);
       setLocName('');
       setLocBuilding('');
       setLocFloor('');
       setLocDesc('');
+      setLocBranch('');
     } catch (err: any) {
       setErrorText(err.message || 'Erro ao criar nova localização.');
     }
@@ -164,9 +167,14 @@ export function LocationsAndResponsiblesView({
             {locations.map((loc) => (
               <div key={loc.id} className="p-5 bg-white border border-slate-100 rounded-2xl hover:border-indigo-150 transition-all flex flex-col justify-between shadow-xs">
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-[10px] font-mono bg-slate-50 text-indigo-600 border border-slate-100 rounded-md py-0.5 px-2 max-w-fit font-bold">
-                    <Hash className="w-3 h-3" />
-                    <span>{loc.id}</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-[10px] font-mono bg-slate-50 text-indigo-600 border border-slate-100 rounded-md py-0.5 px-2 max-w-fit font-bold">
+                      <Hash className="w-3 h-3" />
+                      <span>{loc.id}</span>
+                    </div>
+                    <span className="text-[10px] bg-indigo-50/60 text-indigo-700 font-bold px-2 py-0.5 rounded-md border border-indigo-100/40">
+                      Filial: {loc.branch || 'Matriz'}
+                    </span>
                   </div>
                   <h4 className="font-bold text-slate-800 text-sm leading-tight">{loc.name}</h4>
                   <p className="text-xs text-slate-500 leading-normal">{loc.description || 'Sem descrição física declarada.'}</p>
@@ -270,6 +278,19 @@ export function LocationsAndResponsiblesView({
                   value={locName}
                   onChange={(e) => setLocName(e.target.value)}
                   placeholder="Ex: Almoxarifado Central - Prateleira D"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-hidden text-slate-800"
+                />
+              </div>
+
+              {/* Branch / Filial */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-500">Filial / Unidade Corporativa *</label>
+                <input
+                  type="text"
+                  required
+                  value={locBranch}
+                  onChange={(e) => setLocBranch(e.target.value)}
+                  placeholder="Ex: Filial São Paulo, Filial Recife, Matriz"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-hidden text-slate-800"
                 />
               </div>

@@ -31,6 +31,7 @@ export interface Location {
   building: string;
   floor: string;
   description: string;
+  branch?: string;
 }
 
 export interface Responsible {

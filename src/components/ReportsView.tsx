@@ -96,7 +96,7 @@ export function ReportsView({ assets, locations, responsibles }: ReportsViewProp
         const totalVal = items.reduce((sum, i) => sum + i.value, 0);
         return {
           id: loc.id,
-          title: `${loc.name} - ${loc.building} (${loc.floor}º andar)`,
+          title: `[${loc.branch || 'Matriz'}] ${loc.name} - ${loc.building} (${loc.floor}º andar)`,
           count,
           value: totalVal,
           percentage: totalFilteredValue > 0 ? (totalVal / totalFilteredValue) * 100 : 0,

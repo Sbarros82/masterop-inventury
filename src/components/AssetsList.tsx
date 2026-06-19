@@ -437,11 +437,18 @@ export function AssetsList({
 
                       {/* Physical Location */}
                       <td className="p-4">
-                        <div className="flex items-center gap-2 text-slate-600">
-                          <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="truncate max-w-[150px]" title={loc ? loc.name : 'Não alocado'}>
-                            {loc ? loc.name : 'Não alocado'}
-                          </span>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-slate-600">
+                            <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate max-w-[150px] font-semibold text-slate-800" title={loc ? loc.name : 'Não alocado'}>
+                              {loc ? loc.name : 'Não alocado'}
+                            </span>
+                          </div>
+                          {loc && (
+                            <span className="inline-block text-[9px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded-sm border border-slate-200/60 leading-none">
+                              {loc.branch || 'Matriz'}
+                            </span>
+                          )}
                         </div>
                       </td>
 
