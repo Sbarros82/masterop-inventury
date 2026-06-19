@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Sparkles,
   Award,
+  Trash2,
   X
 } from 'lucide-react';
 
@@ -76,7 +77,8 @@ import {
   fbStartInventory,
   fbScanAsset,
   fbFinishInventory,
-  fbGetStats
+  fbGetStats,
+  fbWipeAllData
 } from './utils/firebaseDb';
 
 export default function App() {
@@ -476,6 +478,48 @@ export default function App() {
             >
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>{localMode ? 'Banco Local (Offline)' : 'Banco Cloud Firestore (Sincronizado)'}</span>
+            </button>
+
+            {/* Wipe Database to start from scratch */}
+            <button
+              onClick={async () => {
+                const confirmWipe = confirm(
+                  localMode 
+                    ? "ATENÇÃO: Deseja apagar TODOS os dados locais deste navegador e começar totalmente do zero?" 
+                    : "⚠️ ATENÇÃO EXTREMA: Você deseja APAGAR COMPLETAMENTE e PERMANENTEMENTE TODOS OS DADOS do Banco de Dados Cloud? Esta ação excluirá todos os ativos, movimentações, ordens de serviço e auditorias de todos os usuários, permitindo iniciar o sistema 100% em branco. Deseja continuar?"
+                );
+                if (confirmWipe) {
+                  const checkDouble = confirm("Confirma que deseja zerar? Esta ação NÃO PODE ser recuperada.");
+                  if (!checkDouble) return;
+
+                  setIsLoading(true);
+                  try {
+                    if (localMode) {
+                      localStorage.setItem('patrimony_db', JSON.stringify({
+                        assets: [],
+                        locations: [],
+                        responsibles: [],
+                        movements: [],
+                        maintenances: [],
+                        inventories: []
+                      }));
+                    } else {
+                      await fbWipeAllData();
+                    }
+                    alert("Banco de dados reiniciado e zerado com sucesso! Agora você pode começar seu cadastro do zero.");
+                    await refreshAllData();
+                  } catch (err: any) {
+                    alert("Erro ao zerar o banco de dados: " + (err.message || err));
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }
+              }}
+              className="px-2.5 py-1 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-lg transition-all cursor-pointer flex items-center gap-1 font-semibold"
+              title="Zerar Banco de Dados de Ativos (Começar do Zero)"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+              <span>Zerar Banco</span>
             </button>
 
             {/* Quick state reset trigger */}

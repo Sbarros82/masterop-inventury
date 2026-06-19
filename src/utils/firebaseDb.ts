@@ -5,6 +5,7 @@ import {
   getDocs, 
   doc, 
   setDoc, 
+  getDoc,
   deleteDoc, 
   writeBatch
 } from 'firebase/firestore';
@@ -12,9 +13,12 @@ import { Asset, Location, Responsible, AssetMovement, Maintenance, Inventory, Da
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
+console.log("Firebase config loaded:", { ...firebaseConfig, apiKey: "REDACTED" });
+console.log("Initializing Firestore with Database ID:", firebaseConfig.firestoreDatabaseId || "(default)");
 export const db = firebaseConfig.firestoreDatabaseId 
   ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
   : getFirestore(app);
+console.log("Firestore initialized successfully:", db);
 
 // Initial database seed to populate when Firestore database is brand new
 const INITIAL_DATABASE = {
@@ -229,7 +233,7 @@ export function withTimeout<T>(promise: Promise<T>, ms = 4000, errorMsg = 'Tempo
 // Global cached promise to avoid concurrent redundant seeding requests
 let seedPromise: Promise<void> | null = null;
 
-// Help seed the database with defaults if it is completely empty
+// Help seed the database with defaults if it is completely empty, checking system_config/init first
 export async function ensureFirebaseSeeded(): Promise<void> {
   if (seedPromise) {
     return seedPromise;
@@ -237,47 +241,60 @@ export async function ensureFirebaseSeeded(): Promise<void> {
 
   seedPromise = (async () => {
     try {
-      const snapPromise = getDocs(collection(db, 'assets'));
+      const configDocRef = doc(db, 'system_config', 'init');
       // Wrap the initial connection check with a timeout
-      const assetsSnap = await withTimeout(snapPromise, 3500, 'Sem resposta ao tentar inicializar banco Firestore.');
-      
-      if (assetsSnap.empty) {
-        console.log("Firestore empty! Seeding default MasterOp databases...");
-        const batch = writeBatch(db);
+      const configSnap = await withTimeout(getDoc(configDocRef), 3500, 'Sem resposta ao tentar inicializar banco Firestore.');
 
-        // Seed responsibles
-        INITIAL_DATABASE.responsibles.forEach(resp => {
-          const dRef = doc(db, 'responsibles', resp.id);
-          batch.set(dRef, resp);
-        });
-
-        // Seed locations
-        INITIAL_DATABASE.locations.forEach(loc => {
-          const dRef = doc(db, 'locations', loc.id);
-          batch.set(dRef, loc);
-        });
-
-        // Seed assets
-        INITIAL_DATABASE.assets.forEach(asset => {
-          const dRef = doc(db, 'assets', asset.id);
-          batch.set(dRef, asset);
-        });
-
-        // Seed movements
-        INITIAL_DATABASE.movements.forEach(mov => {
-          const dRef = doc(db, 'movements', mov.id);
-          batch.set(dRef, mov);
-        });
-
-        // Seed maintenances
-        INITIAL_DATABASE.maintenances.forEach(maint => {
-          const dRef = doc(db, 'maintenances', maint.id);
-          batch.set(dRef, maint);
-        });
-
-        await batch.commit();
-        console.log("Seeding complete!");
+      if (configSnap.exists()) {
+        console.log("Database initialized flag is checked. Skipping auto-seeding.");
+        return;
       }
+
+      // If configuration does not exist, check if there is existing data in assets
+      const assetsSnap = await getDocs(collection(db, 'assets'));
+      if (!assetsSnap.empty) {
+        await setDoc(configDocRef, { seeded: true, date: new Date().toISOString() });
+        return;
+      }
+
+      console.log("Firestore empty and uninitialized! Seeding default MasterOp databases...");
+      const batch = writeBatch(db);
+
+      // Record initializer flag in same batch
+      batch.set(configDocRef, { seeded: true, date: new Date().toISOString() });
+
+      // Seed responsibles
+      INITIAL_DATABASE.responsibles.forEach(resp => {
+        const dRef = doc(db, 'responsibles', resp.id);
+        batch.set(dRef, resp);
+      });
+
+      // Seed locations
+      INITIAL_DATABASE.locations.forEach(loc => {
+        const dRef = doc(db, 'locations', loc.id);
+        batch.set(dRef, loc);
+      });
+
+      // Seed assets
+      INITIAL_DATABASE.assets.forEach(asset => {
+        const dRef = doc(db, 'assets', asset.id);
+        batch.set(dRef, asset);
+      });
+
+      // Seed movements
+      INITIAL_DATABASE.movements.forEach(mov => {
+        const dRef = doc(db, 'movements', mov.id);
+        batch.set(dRef, mov);
+      });
+
+      // Seed maintenances
+      INITIAL_DATABASE.maintenances.forEach(maint => {
+        const dRef = doc(db, 'maintenances', maint.id);
+        batch.set(dRef, maint);
+      });
+
+      await batch.commit();
+      console.log("Seeding complete!");
     } catch (err) {
       // Clear cache on error so a retry can attempt again
       seedPromise = null;
@@ -286,6 +303,29 @@ export async function ensureFirebaseSeeded(): Promise<void> {
   })();
 
   return seedPromise;
+}
+
+// Complete wipe to start system completely from scratch
+export async function fbWipeAllData(): Promise<void> {
+  // Ensure we overwrite seedPromise cache so subsequent loads don't try to re-seed
+  seedPromise = Promise.resolve();
+
+  const batch = writeBatch(db);
+
+  // Set the initialized config document so it never auto-seeds again
+  const configDocRef = doc(db, 'system_config', 'init');
+  batch.set(configDocRef, { seeded: true, wipedAt: new Date().toISOString() });
+
+  const collections = ['assets', 'locations', 'responsibles', 'movements', 'maintenances', 'inventories'];
+  for (const collName of collections) {
+    const snap = await getDocs(collection(db, collName));
+    snap.docs.forEach(d => {
+      batch.delete(doc(db, collName, d.id));
+    });
+  }
+
+  await batch.commit();
+  console.log("Database wiped completely and marked as initialized.");
 }
 
 // Read functions wrapped with timeouts
