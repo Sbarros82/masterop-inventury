@@ -25,11 +25,6 @@ Na barra superior do sistema, há um indicador visual dinâmico do estado atual 
 * **Banco Cloud Firestore (Sincronizado)**: Indica que cada inserção ou modificação está salvando em nuvem de maneira segura em tempo real, visível para todos os demais usuários.
 * **Banco Local (Offline)**: Ativa um cache exclusivo contido no próprio navegador (`localStorage`), possibilitando operar sem internet. Quando ativo, as ações ficam guardadas localmente no seu computador.
 
-### ⚠️ Função "Zerar Banco" (Modo Limpeza Total)
-Para possibilitar o início de um novo ciclo empresarial, audição limpa ou testes, foi adicionado o recurso de limpeza integral do banco de dados:
-1. Clique no botão vermelho **"Zerar Banco"** no canto superior direito.
-2. O sistema identificará se você está em modo Offline (limpará apenas o navegador) ou Online (limpará as coleções comuns de toda a rede no Firestore).
-3. **Double-confirm**: Você precisará confirmar duas vezes seguidas para evitar gatilhos acidentais. Após a dupla confirmação, todos os ativos, transferências, ordens de serviços e auditorias serão apagados de maneira irreversível, configurando um estado 100% em branco para novos cadastros.
 
 ---
 
