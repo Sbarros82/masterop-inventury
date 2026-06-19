@@ -14,7 +14,9 @@ import {
   DollarSign,
   Barcode,
   X,
-  AlertCircle
+  AlertCircle,
+  Camera,
+  Maximize2
 } from 'lucide-react';
 import { Asset, AssetCategory, AssetStatus, Location, Responsible, User as UserType } from '../types';
 
@@ -59,8 +61,88 @@ export function AssetsList({
     status: 'active' as AssetStatus,
     serialNumber: '',
     brand: '',
-    model: ''
+    model: '',
+    photo: ''
   });
+
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+
+  // Stop camera media tracks
+  const stopCameraStream = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop());
+      setCameraStream(null);
+    }
+    setShowCamera(false);
+    setCameraError('');
+  };
+
+  // Start active camera feed
+  const startCameraStream = async () => {
+    setCameraError('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      setCameraStream(stream);
+      setShowCamera(true);
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 150);
+    } catch (err: any) {
+      setCameraError('Não foi possível acessar a câmera do dispositivo. Verifique as permissões de acesso.');
+      console.error(err);
+    }
+  };
+
+  // Click handler to snapshot frame from stream
+  const capturePhoto = () => {
+    if (!videoRef.current) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 480;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      setFormData((prev) => ({ ...prev, photo: dataUrl }));
+      stopCameraStream();
+    }
+  };
+
+  // Convert uploaded image file path to Base64 data url
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setFormData((prev) => ({ ...prev, photo: event.target!.result as string }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Make sure we stop the streams on unmount
+  React.useEffect(() => {
+    return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [cameraStream]);
+
+  const closeModal = () => {
+    stopCameraStream();
+    setIsFormOpen(false);
+  };
 
   const canModify = currentUser.role === 'admin' || currentUser.role === 'operator';
 
@@ -108,6 +190,7 @@ export function AssetsList({
   const openAddForm = () => {
     setErrorText('');
     setEditingAsset(null);
+    stopCameraStream();
     setFormData({
       name: '',
       description: '',
@@ -119,7 +202,8 @@ export function AssetsList({
       status: 'active',
       serialNumber: '',
       brand: '',
-      model: ''
+      model: '',
+      photo: ''
     });
     setIsFormOpen(true);
   };
@@ -127,6 +211,7 @@ export function AssetsList({
   const openEditForm = (asset: Asset) => {
     setErrorText('');
     setEditingAsset(asset);
+    stopCameraStream();
     setFormData({
       name: asset.name,
       description: asset.description || '',
@@ -138,7 +223,8 @@ export function AssetsList({
       status: asset.status,
       serialNumber: asset.serialNumber || '',
       brand: asset.brand || '',
-      model: asset.model || ''
+      model: asset.model || '',
+      photo: asset.photo || ''
     });
     setIsFormOpen(true);
   };
@@ -166,7 +252,7 @@ export function AssetsList({
       } else {
         await onAddAsset(formData);
       }
-      setIsFormOpen(false);
+      closeModal();
     } catch (err: any) {
       setErrorText(err.message || 'Erro ao registrar ativo patrimonial.');
     }
@@ -311,15 +397,34 @@ export function AssetsList({
 
                       {/* Main asset names */}
                       <td className="p-4 max-w-xs">
-                        <div>
-                          <h4 className="font-bold text-slate-900 truncate" title={asset.name}>{asset.name}</h4>
-                          <p className="text-xs text-slate-400 truncate mt-0.5" title={asset.description}>{asset.description || 'Sem descrição'}</p>
-                          {(asset.brand || asset.model) && (
-                            <div className="text-[10px] text-slate-400 mt-1 flex gap-1">
-                              {asset.brand && <span className="bg-slate-100 px-1 py-0.5 rounded-sm">Marca: {asset.brand}</span>}
-                              {asset.model && <span className="bg-slate-105 px-1 py-0.5 rounded-sm">Modelo: {asset.model}</span>}
+                        <div className="flex items-center gap-3">
+                          {asset.photo ? (
+                            <div className="relative group shrink-0">
+                              <img 
+                                src={asset.photo} 
+                                alt={asset.name} 
+                                onClick={() => setSelectedPhoto(asset.photo || null)}
+                                className="w-10 h-10 object-cover rounded-lg border border-slate-200 cursor-zoom-in hover:scale-105 transition-all" 
+                              />
+                              <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg pointer-events-none transition-opacity">
+                                <Maximize2 className="w-3 h-3 text-white" />
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="w-10 h-10 bg-slate-50 border border-slate-150 rounded-lg flex items-center justify-center text-slate-350 shrink-0 select-none">
+                              <Camera className="w-4 h-4 text-slate-400" />
                             </div>
                           )}
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-slate-900 truncate" title={asset.name}>{asset.name}</h4>
+                            <p className="text-xs text-slate-405 truncate mt-0.5" title={asset.description}>{asset.description || 'Sem descrição'}</p>
+                            {(asset.brand || asset.model) && (
+                              <div className="text-[10px] text-slate-400 mt-0.5 flex gap-1">
+                                {asset.brand && <span className="bg-slate-100 px-1 py-0.5 rounded-sm">Marca: {asset.brand}</span>}
+                                {asset.model && <span className="bg-slate-100 px-1 py-0.5 rounded-sm">Modelo: {asset.model}</span>}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </td>
 
@@ -575,12 +680,100 @@ export function AssetsList({
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-hidden text-slate-800"
                   />
                 </div>
+
+                {/* Photo upload / live capture section */}
+                <div className="md:col-span-2 border border-slate-200 bg-slate-50/50 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-slate-700 block">Foto do Ativo Patrimonial</span>
+                      <span className="text-[10px] text-slate-400 block">Adicione fotos de tomadas de identificação ou do estado do bem.</span>
+                    </div>
+                    {formData.photo && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, photo: '' }))}
+                        className="text-[10px] font-bold text-rose-500 hover:text-rose-700 bg-rose-50 px-2.5 py-1 rounded-md cursor-pointer transition-colors"
+                      >
+                        Remover Foto
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-4">
+                    {/* Thumbnail / Camera display panel */}
+                    <div className="w-28 h-28 bg-white border border-slate-200 rounded-xl flex items-center justify-center overflow-hidden shrink-0 relative">
+                      {showCamera ? (
+                        <video 
+                          ref={videoRef} 
+                          autoPlay 
+                          playsInline 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : formData.photo ? (
+                        <img 
+                          src={formData.photo} 
+                          alt="Visualização do ativo" 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Camera className="w-8 h-8 text-slate-350" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 w-full space-y-2">
+                      {showCamera ? (
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={capturePhoto}
+                            className="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1"
+                          >
+                            <span>Capturar Foto</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={stopCameraStream}
+                            className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-755 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={startCameraStream}
+                            className="px-2 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-150 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 text-center"
+                          >
+                            <Camera className="w-3.5 h-3.5" />
+                            <span>Tirar Foto</span>
+                          </button>
+                          
+                          <label className="px-2 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 text-center">
+                            <span>Upload Arquivo</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handlePhotoUpload}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+                      )}
+                      
+                      {cameraError && (
+                        <p className="text-[10px] text-rose-500 font-bold">{cameraError}</p>
+                      )}
+                      <p className="text-[10px] text-slate-450 line-height-tight">Suporta capturas diretas da câmera/webcam ou downloads de arquivos JPEG/PNG.</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="border-t border-slate-100 my-4 pt-4 flex items-center justify-end gap-3" id="modal-actions-container">
                 <button
                   type="button"
-                  onClick={() => setIsFormOpen(false)}
+                  onClick={closeModal}
                   className="px-4 py-2 text-xs font-semibold border border-slate-200 text-slate-500 hover:bg-slate-50 rounded-xl transition-all cursor-pointer"
                 >
                   Cancelar
@@ -593,6 +786,31 @@ export function AssetsList({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox photo modal zoomed preview */}
+      {selectedPhoto && (
+        <div 
+          className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 transition-opacity" 
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <div 
+            className="relative max-w-2xl w-full bg-slate-950 overflow-hidden rounded-2xl border border-slate-800 flex items-center justify-center shadow-2xl p-2" 
+            onClick={e => e.stopPropagation()}
+          >
+            <img 
+              src={selectedPhoto} 
+              alt="Visualização ampliada do ativo" 
+              className="max-w-full max-h-[80vh] object-contain rounded-xl" 
+            />
+            <button
+              onClick={() => setSelectedPhoto(null)}
+              className="absolute top-4 right-4 w-9 h-9 bg-slate-900/80 hover:bg-slate-900 rounded-full border border-slate-750 flex items-center justify-center text-white cursor-pointer transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
         </div>
       )}

@@ -13,7 +13,8 @@ import {
   Sparkles,
   Award,
   Trash2,
-  X
+  X,
+  FileText
 } from 'lucide-react';
 
 import { 
@@ -35,6 +36,7 @@ import { MaintenanceView } from './components/MaintenanceView';
 import { InventoryView } from './components/InventoryView';
 import { LocationsAndResponsiblesView } from './components/LocationsAndResponsiblesView';
 import { AuthBadge } from './components/AuthBadge';
+import { ReportsView } from './components/ReportsView';
 
 // Local Storage Driver for Offline/Vercel support
 import {
@@ -362,6 +364,7 @@ export default function App() {
     { id: 'movements', label: 'Transferências', icon: RotateCw },
     { id: 'maintenance', label: 'Manutenção / OS', icon: Wrench },
     { id: 'inventory', label: 'Inventário Físico', icon: ClipboardCheck },
+    { id: 'reports', label: 'Relatórios', icon: FileText },
     { id: 'structures', label: 'Unidades / Pessoas', icon: Settings }
   ];
 
@@ -596,6 +599,14 @@ export default function App() {
                   onStartInventory={handleStartInventory}
                   onScanAsset={handleScanAsset}
                   onFinishInventory={handleFinishInventory}
+                />
+              )}
+
+              {activeTab === 'reports' && (
+                <ReportsView
+                  assets={assets}
+                  locations={locations}
+                  responsibles={responsibles}
                 />
               )}
 

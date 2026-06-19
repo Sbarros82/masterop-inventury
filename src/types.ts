@@ -22,6 +22,7 @@ export interface Asset {
   serialNumber?: string;
   brand?: string;
   model?: string;
+  photo?: string; // Base64 data URL
 }
 
 export interface Location {
