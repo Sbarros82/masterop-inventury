@@ -1,0 +1,6 @@
+{
+  "name": "Patrimonium ERP",
+  "description": "Sistema completo de gestão e controle de patrimônio, ativos, movimentações, inventários e manutenções.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
