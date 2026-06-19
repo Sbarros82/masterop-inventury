@@ -57,15 +57,35 @@ import {
   localGetStats
 } from './utils/localDb';
 
+// Cloud Firebase Firestore integration
+import {
+  fbGetAssets,
+  fbGetLocations,
+  fbGetResponsibles,
+  fbGetMovements,
+  fbGetMaintenances,
+  fbGetInventories,
+  fbAddAsset,
+  fbAddLocation,
+  fbAddResponsible,
+  fbUpdateAsset,
+  fbDeleteAsset,
+  fbAddMovement,
+  fbAddMaintenance,
+  fbUpdateMaintenance,
+  fbStartInventory,
+  fbScanAsset,
+  fbFinishInventory,
+  fbGetStats
+} from './utils/firebaseDb';
+
 export default function App() {
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Connection mode (Vercel automatic bypass / offline status indicator)
-  const [localMode, setLocalMode] = useState<boolean>(() => {
-    return window.location.hostname.includes('vercel.app') || window.location.hostname.includes('github.io');
-  });
+  // Connection mode (Defaults to Cloud Firebase Firestore. Toggleable to Local Browser offline storage)
+  const [localMode, setLocalMode] = useState<boolean>(false);
 
   // Authentication simulator
   const [currentUser, setCurrentUser] = useState<UserType>({ 
@@ -95,14 +115,12 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorBanner, setErrorBanner] = useState('');
 
-  // Fetch full dataset from API endpoints
+  // Fetch full dataset from Cloud DB / Local DB
   async function refreshAllData() {
     setIsLoading(true);
     setErrorBanner('');
 
-    const isVercelHost = window.location.hostname.includes('vercel.app') || window.location.hostname.includes('github.io');
-
-    if (localMode || isVercelHost) {
+    if (localMode) {
       try {
         setAssets(localGetAssets());
         setLocations(localGetLocations());
@@ -111,7 +129,6 @@ export default function App() {
         setMaintenances(localGetMaintenances());
         setInventories(localGetInventories());
         setStats(localGetStats());
-        setLocalMode(true);
       } catch (err) {
         console.error("Local data load fail:", err);
       } finally {
@@ -121,27 +138,6 @@ export default function App() {
     }
 
     try {
-      // Health check to test whether API is real JSON instead of static fallback page
-      try {
-        const check = await fetch('/api/assets');
-        const ct = check.headers.get('content-type') || '';
-        if (!check.ok || !ct.includes('application/json')) {
-          throw new Error('API offline or main app assets file is treated as web fallback');
-        }
-      } catch (probeError) {
-        console.warn("REST API is offline or not configured. Automatically enabling self-contained browser Local Database mode.");
-        setLocalMode(true);
-        setAssets(localGetAssets());
-        setLocations(localGetLocations());
-        setResponsibles(localGetResponsibles());
-        setMovements(localGetMovements());
-        setMaintenances(localGetMaintenances());
-        setInventories(localGetInventories());
-        setStats(localGetStats());
-        setIsLoading(false);
-        return;
-      }
-
       const [
         resAssets, 
         resLocations, 
@@ -151,13 +147,13 @@ export default function App() {
         resInventories, 
         resStats
       ] = await Promise.all([
-        fetch('/api/assets').then(r => r.json()),
-        fetch('/api/locations').then(r => r.json()),
-        fetch('/api/responsibles').then(r => r.json()),
-        fetch('/api/movements').then(r => r.json()),
-        fetch('/api/maintenances').then(r => r.json()),
-        fetch('/api/inventories').then(r => r.json()),
-        fetch('/api/dashboard').then(r => r.json())
+        fbGetAssets(),
+        fbGetLocations(),
+        fbGetResponsibles(),
+        fbGetMovements(),
+        fbGetMaintenances(),
+        fbGetInventories(),
+        fbGetStats()
       ]);
 
       setAssets(resAssets || []);
@@ -166,25 +162,22 @@ export default function App() {
       setMovements(resMovements || []);
       setMaintenances(resMaintenances || []);
       setInventories(resInventories || []);
-      setStats(resStats || {
-        totalAssets: 0,
-        totalValue: 0,
-        maintenanceCount: 0,
-        pendingMovementsCount: 0,
-        categoryDistribution: { furniture: 0, it: 0, machinery: 0, vehicles: 0, other: 0 },
-        statusDistribution: { active: 0, maintenance: 0, transferred: 0, retired: 0 },
-        monthlyAcquisitions: []
-      });
-    } catch (err) {
-      console.error("Error retrieving dataset fallback to local mode: ", err);
+      setStats(resStats);
+    } catch (err: any) {
+      console.error("Error retrieving Cloud Firestore dataset: ", err);
+      setErrorBanner(`Falha ao carregar banco em tempo real: ${err.message || err}. Alterando modo para offline local temporário.`);
       setLocalMode(true);
-      setAssets(localGetAssets());
-      setLocations(localGetLocations());
-      setResponsibles(localGetResponsibles());
-      setMovements(localGetMovements());
-      setMaintenances(localGetMaintenances());
-      setInventories(localGetInventories());
-      setStats(localGetStats());
+      try {
+        setAssets(localGetAssets());
+        setLocations(localGetLocations());
+        setResponsibles(localGetResponsibles());
+        setMovements(localGetMovements());
+        setMaintenances(localGetMaintenances());
+        setInventories(localGetInventories());
+        setStats(localGetStats());
+      } catch (localErr) {
+        console.error("Local fallback failed:", localErr);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -200,15 +193,9 @@ export default function App() {
     try {
       if (localMode) {
         localAddAsset(newAssetData);
-        await refreshAllData();
-        return;
+      } else {
+        await fbAddAsset(newAssetData);
       }
-      const res = await fetch('/api/assets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newAssetData)
-      });
-      if (!res.ok) throw new Error('Erro ao salvar novo ativo.');
       await refreshAllData();
     } catch (err: any) {
       alert(err.message);
@@ -221,15 +208,9 @@ export default function App() {
     try {
       if (localMode) {
         localUpdateAsset(id, updatedFields);
-        await refreshAllData();
-        return;
+      } else {
+        await fbUpdateAsset(id, updatedFields);
       }
-      const res = await fetch(`/api/assets/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedFields)
-      });
-      if (!res.ok) throw new Error('Erro ao editar o ativo.');
       await refreshAllData();
     } catch (err: any) {
       alert(err.message);
@@ -242,13 +223,9 @@ export default function App() {
     try {
       if (localMode) {
         localDeleteAsset(id);
-        await refreshAllData();
-        return;
+      } else {
+        await fbDeleteAsset(id);
       }
-      const res = await fetch(`/api/assets/${id}`, {
-        method: 'DELETE'
-      });
-      if (!res.ok) throw new Error('Falha ao remover o ativo patrimonial.');
       await refreshAllData();
     } catch (err: any) {
       alert(err.message);
@@ -261,15 +238,9 @@ export default function App() {
     try {
       if (localMode) {
         localAddMovement(movementData);
-        await refreshAllData();
-        return;
+      } else {
+        await fbAddMovement(movementData);
       }
-      const res = await fetch('/api/movements', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(movementData)
-      });
-      if (!res.ok) throw new Error('Não foi possível transferir este ativo.');
       await refreshAllData();
     } catch (err: any) {
       alert(err.message);
@@ -282,15 +253,9 @@ export default function App() {
     try {
       if (localMode) {
         localAddMaintenance(maintData);
-        await refreshAllData();
-        return;
+      } else {
+        await fbAddMaintenance(maintData);
       }
-      const res = await fetch('/api/maintenances', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(maintData)
-      });
-      if (!res.ok) throw new Error('Erro ao criar chamado de manutenção.');
       await refreshAllData();
     } catch (err: any) {
       alert(err.message);
@@ -303,15 +268,9 @@ export default function App() {
     try {
       if (localMode) {
         localUpdateMaintenance(id, updateFields);
-        await refreshAllData();
-        return;
+      } else {
+        await fbUpdateMaintenance(id, updateFields);
       }
-      const res = await fetch(`/api/maintenances/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateFields)
-      });
-      if (!res.ok) throw new Error('Erro ao fechar chamado de manutenção.');
       await refreshAllData();
     } catch (err: any) {
       alert(err.message);
@@ -324,17 +283,8 @@ export default function App() {
     try {
       if (localMode) {
         localStartInventory(title);
-        await refreshAllData();
-        return;
-      }
-      const res = await fetch('/api/inventories/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title })
-      });
-      if (!res.ok) {
-        const errJson = await res.json();
-        throw new Error(errJson.error || 'Falha ao iniciar inventário geral.');
+      } else {
+        await fbStartInventory(title);
       }
       await refreshAllData();
     } catch (err: any) {
@@ -348,17 +298,8 @@ export default function App() {
     try {
       if (localMode) {
         localScanAsset(tag, observations);
-        await refreshAllData();
-        return;
-      }
-      const res = await fetch('/api/inventories/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tag, observations })
-      });
-      if (!res.ok) {
-        const errJson = await res.json();
-        throw new Error(errJson.error || 'Esse código de etiqueta não pertence a ativos pendentes desta auditoria.');
+      } else {
+        await fbScanAsset(tag, observations);
       }
       await refreshAllData();
     } catch (err: any) {
@@ -371,15 +312,9 @@ export default function App() {
     try {
       if (localMode) {
         localFinishInventory(inventoryId);
-        await refreshAllData();
-        return;
+      } else {
+        await fbFinishInventory(inventoryId);
       }
-      const res = await fetch('/api/inventories/finish', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inventoryId })
-      });
-      if (!res.ok) throw new Error('Erro ao finalizar o inventário.');
       await refreshAllData();
     } catch (err: any) {
       alert(err.message);
@@ -392,15 +327,9 @@ export default function App() {
     try {
       if (localMode) {
         localAddLocation(locData);
-        await refreshAllData();
-        return;
+      } else {
+        await fbAddLocation(locData);
       }
-      const res = await fetch('/api/locations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(locData)
-      });
-      if (!res.ok) throw new Error('Falha ao readequar local.');
       await refreshAllData();
     } catch (err: any) {
       alert(err.message);
@@ -413,15 +342,9 @@ export default function App() {
     try {
       if (localMode) {
         localAddResponsible(respData);
-        await refreshAllData();
-        return;
+      } else {
+        await fbAddResponsible(respData);
       }
-      const res = await fetch('/api/responsibles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(respData)
-      });
-      if (!res.ok) throw new Error('Falha ao readequar responsável.');
       await refreshAllData();
     } catch (err: any) {
       alert(err.message);
@@ -532,14 +455,27 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-              localMode 
-                ? 'bg-blue-50 text-blue-700 border border-blue-100'
-                : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-            }`}>
+            <button 
+              onClick={() => {
+                const choice = confirm(
+                  localMode 
+                    ? "Deseja alternar para o BANCO DE DADOS CLOUD FIREBASE? Seus dados serão gravados na nuvem em tempo real e sincronizados com outros PCs."
+                    : "Deseja alternar para o MODO LOCAL OFFLINE? Seus dados ficarão armazenados apenas neste navegador de forma provisória."
+                );
+                if (choice) {
+                  setLocalMode(!localMode);
+                }
+              }}
+              title="Clique para alternar entre Banco de Dados Cloud (Sincronizado) e Banco Local (Offline)"
+              className={`hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider cursor-pointer border transition-all duration-200 ${
+                localMode 
+                  ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+              }`}
+            >
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>{localMode ? 'Banco Local (Navegador)' : 'Sincronizado (Servidor)'}</span>
-            </div>
+              <span>{localMode ? 'Banco Local (Offline)' : 'Banco Cloud Firestore (Sincronizado)'}</span>
+            </button>
 
             {/* Quick state reset trigger */}
             <button
