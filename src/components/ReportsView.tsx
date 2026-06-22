@@ -16,6 +16,37 @@ import {
 } from 'lucide-react';
 import { Asset, Location, Responsible, AssetCategory, AssetStatus } from '../types';
 
+function classifyAssetSubgroup(name: string): string {
+  const norm = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // strip accents
+  
+  if (norm.includes("ar condicionado") || norm.includes("split") || norm.includes("climatiz") || norm.includes("ar-condic")) {
+    return "Ar Condicionado / Climatização";
+  }
+  if (norm.includes("cadeira") || norm.includes("poltrona") || norm.includes("sofa") || norm.includes("banqueta") || norm.includes("puff") || norm.includes("assento")) {
+    return "Cadeiras, Poltronas e Assentos";
+  }
+  if (norm.includes("mesa") || norm.includes("balcao") || norm.includes("escrivaninha") || norm.includes("estacao de trabalho") || norm.includes("escrever")) {
+    return "Mesas e Balcões";
+  }
+  if (norm.includes("armario") || norm.includes("gaveteiro") || norm.includes("arquivo") || norm.includes("comoda") || norm.includes("prateleira") || norm.includes("estante") || norm.includes("roupeiro")) {
+    return "Armários, Gaveteiros e Estantes";
+  }
+  if (norm.includes("computador") || norm.includes("notebook") || norm.includes("laptop") || norm.includes("desktop") || norm.includes("servidor") || norm.includes("pc") || norm.includes("monitor") || norm.includes("tela") || norm.includes("teclado") || norm.includes("mouse") || norm.includes("impressora") || norm.includes("nobreak") || norm.includes("switch") || norm.includes("roteador")) {
+    return "Computadores e Equipamentos de TI";
+  }
+  if (norm.includes("telefone") || norm.includes("aparelho telefonico") || norm.includes("celular") || norm.includes("smartphone") || norm.includes("pabx")) {
+    return "Equipamentos de Telefonia";
+  }
+  if (norm.includes("geladeira") || norm.includes("microondas") || norm.includes("frigobar") || norm.includes("cafeteira") || norm.includes("bebedouro") || norm.includes("cozinha") || norm.includes("forno")) {
+    return "Eletrodomésticos e Cozinha";
+  }
+  if (norm.includes("carro") || norm.includes("moto") || norm.includes("veiculo") || norm.includes("caminhao") || norm.includes("camionete")) {
+    return "Veículos de Frota";
+  }
+  
+  return "Outros Bens e Equipamentos";
+}
+
 interface ReportsViewProps {
   assets: Asset[];
   locations: Location[];
@@ -25,7 +56,7 @@ interface ReportsViewProps {
 export function ReportsView({ assets, locations, responsibles }: ReportsViewProps) {
   // Config state
   const [reportType, setReportType] = useState<'analytical' | 'synthetic'>('analytical');
-  const [groupBy, setGroupBy] = useState<'category' | 'location'>('category');
+  const [groupBy, setGroupBy] = useState<'category' | 'location' | 'subgroup'>('subgroup');
   
   // Filters state
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -89,7 +120,7 @@ export function ReportsView({ assets, locations, responsibles }: ReportsViewProp
           items: items
         };
       }).filter(group => group.count > 0);
-    } else {
+    } else if (groupBy === 'location') {
       return locations.map(loc => {
         const items = filteredAssets.filter(a => a.locationId === loc.id);
         const count = items.length;
@@ -97,6 +128,33 @@ export function ReportsView({ assets, locations, responsibles }: ReportsViewProp
         return {
           id: loc.id,
           title: `[${loc.branch || 'Matriz'}] ${loc.name} - ${loc.building} (${loc.floor}º andar)`,
+          count,
+          value: totalVal,
+          percentage: totalFilteredValue > 0 ? (totalVal / totalFilteredValue) * 100 : 0,
+          items: items
+        };
+      }).filter(group => group.count > 0);
+    } else {
+      // groupBy === 'subgroup'
+      const predefinedGroups = [
+        "Mesas e Balcões",
+        "Cadeiras, Poltronas e Assentos",
+        "Ar Condicionado / Climatização",
+        "Armários, Gaveteiros e Estantes",
+        "Computadores e Equipamentos de TI",
+        "Eletrodomésticos e Cozinha",
+        "Equipamentos de Telefonia",
+        "Veículos de Frota",
+        "Outros Bens e Equipamentos"
+      ];
+      
+      return predefinedGroups.map(subName => {
+        const items = filteredAssets.filter(a => classifyAssetSubgroup(a.name) === subName);
+        const count = items.length;
+        const totalVal = items.reduce((sum, i) => sum + i.value, 0);
+        return {
+          id: subName,
+          title: subName,
           count,
           value: totalVal,
           percentage: totalFilteredValue > 0 ? (totalVal / totalFilteredValue) * 100 : 0,
@@ -222,9 +280,20 @@ export function ReportsView({ assets, locations, responsibles }: ReportsViewProp
 
           {/* Groupings Choice for Synthetic Layout only */}
           {reportType === 'synthetic' && (
-            <div className="space-y-1.5 shrink-0">
+            <div className="space-y-1.5 shrink-0 animate-fade-in">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Agrupamento Principal</label>
               <div className="flex bg-slate-100 rounded-xl p-1 max-w-fit border border-slate-205">
+                <button
+                  onClick={() => setGroupBy('subgroup')}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    groupBy === 'subgroup' 
+                      ? 'bg-white text-indigo-600 shadow-xs' 
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <FolderTree className="w-3.5 h-3.5" />
+                  <span>Subgrupo (Mesas, Cadeiras, Ar Condic.)</span>
+                </button>
                 <button
                   onClick={() => setGroupBy('category')}
                   className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -497,7 +566,7 @@ export function ReportsView({ assets, locations, responsibles }: ReportsViewProp
                     <div>
                       <h4 className="text-sm font-black text-slate-900">{group.title}</h4>
                       <p className="text-[11px] text-slate-400 uppercase tracking-widest font-bold">
-                        Grupo • {groupBy === 'category' ? 'Categoria Fiscal' : 'Endereço Operativo'}
+                        Grupo • {groupBy === 'category' ? 'Categoria Fiscal' : groupBy === 'location' ? 'Endereço Operativo' : 'Subgrupo / Tipo de Ativo'}
                       </p>
                     </div>
                   </div>
