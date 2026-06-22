@@ -540,22 +540,55 @@ export function ReportsView({ assets, locations, responsibles }: ReportsViewProp
                     Resumo analítico associado ao grupo:
                   </span>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                    {group.items.map(item => (
-                      <div 
-                        key={item.id} 
-                        className="p-3 bg-slate-50 rounded-xl border border-slate-150 flex items-center justify-between text-xs hover:border-slate-300 print:bg-white print:border-slate-200"
-                      >
-                        <div className="min-w-0 space-y-0.5">
-                          <span className="font-mono text-[9px] font-bold text-slate-400">{item.tag}</span>
-                          <p className="font-bold text-slate-800 truncate" title={item.name}>{item.name}</p>
-                          <p className="text-[10px] text-slate-450">{item.brand || 'Fabricante N/D'}</p>
-                        </div>
-                        <span className="font-bold text-slate-900 shrink-0 font-mono ml-2">
-                          {formatBRL(item.value)}
-                        </span>
-                      </div>
-                    ))}
+                  <div className="overflow-x-auto border border-slate-150 rounded-xl" id={`table-synthetic-group-${group.id}`}>
+                    <table className="w-full text-left text-xs border-collapse divide-y divide-slate-150">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-150 text-[10px] font-bold text-slate-400 uppercase tracking-wider print:bg-white print:text-black">
+                          <th className="p-3 pl-4 w-28">Etiqueta</th>
+                          <th className="p-3">Ativo Patrimonial</th>
+                          <th className="p-3">Especificações</th>
+                          <th className="p-3 text-right">Valor Líquido</th>
+                          <th className="p-3 text-center w-24">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-[11px] text-slate-700 print:divide-slate-200">
+                        {group.items.map((item) => (
+                          <tr key={item.id} className="hover:bg-slate-50/50 transition-colors print:hover:bg-transparent">
+                            {/* Heritage Tag */}
+                            <td className="p-3 pl-4 font-mono font-bold text-slate-900 whitespace-nowrap">
+                              {item.tag}
+                            </td>
+                            {/* Asset Name */}
+                            <td className="p-3">
+                              <span className="font-extrabold text-slate-900 block">{item.name}</span>
+                            </td>
+                            {/* Brand / Model */}
+                            <td className="p-3 text-slate-500 whitespace-nowrap">
+                              {item.brand || item.model ? (
+                                <span>{item.brand || '-'} {item.model ? `(${item.model})` : ''}</span>
+                              ) : (
+                                <span className="text-slate-350">N/D</span>
+                              )}
+                            </td>
+                            {/* Value */}
+                            <td className="p-3 text-right font-mono font-bold text-slate-900 w-28">
+                              {formatBRL(item.value)}
+                            </td>
+                            {/* Status */}
+                            <td className="p-3 text-center w-24">
+                              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border whitespace-nowrap
+                                ${item.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-150' : ''}
+                                ${item.status === 'maintenance' ? 'bg-amber-50 text-amber-700 border-amber-150' : ''}
+                                ${item.status === 'transferred' ? 'bg-indigo-50 text-indigo-700 border-indigo-150' : ''}
+                                ${item.status === 'retired' ? 'bg-rose-50 text-rose-700 border-rose-150' : ''}
+                              `}>
+                                {getStatusLabel(item.status)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
 
                 </div>
