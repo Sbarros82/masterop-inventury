@@ -12,7 +12,8 @@ import {
   ArrowDownWideNarrow, 
   Info,
   SlidersHorizontal,
-  FolderTree
+  FolderTree,
+  Download
 } from 'lucide-react';
 import { Asset, Location, Responsible, AssetCategory, AssetStatus } from '../types';
 
@@ -101,6 +102,65 @@ export function ReportsView({ assets, locations, responsibles }: ReportsViewProp
   // Printable screen trigger
   const handlePrint = () => {
     window.print();
+  };
+
+  // Generate and download CSV report
+  const handleExportCSV = () => {
+    const headers = [
+      'Etiqueta',
+      'Ativo Patrimonial',
+      'Descricao',
+      'Marca',
+      'Modelo',
+      'Categoria',
+      'Subgrupo / Tipo de Ativo',
+      'Localizacao',
+      'Unidade / Filial',
+      'Responsavel',
+      'Valor Liquido (R$)',
+      'Status'
+    ];
+
+    const rows = filteredAssets.map(asset => {
+      const loc = locations.find(l => l.id === asset.locationId);
+      const resp = responsibles.find(r => r.id === asset.responsibleId);
+      const subGroup = classifyAssetSubgroup(asset.name);
+      
+      const valueFormatted = asset.value.toFixed(2).replace('.', ',');
+
+      return [
+        asset.tag,
+        asset.name,
+        asset.description || '',
+        asset.brand || '',
+        asset.model || '',
+        getCategoryLabel(asset.category),
+        subGroup,
+        loc ? loc.name : 'Nao alocado',
+        loc ? (loc.branch || 'Matriz') : '',
+        resp ? resp.name : 'Sem responsavel',
+        valueFormatted,
+        getStatusLabel(asset.status)
+      ];
+    });
+
+    // Create Semicolon Delimited CSV contents for local Excel compatibility (uses \uFEFF UTF8 BOM for proper Portuguese accenting)
+    const csvContent = "\uFEFF" + [
+      headers.join(';'),
+      ...rows.map(row => row.map(cell => {
+        const cleanCell = String(cell).replace(/"/g, '""');
+        return `"${cleanCell}"`;
+      }).join(';'))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `relatorio_ativos_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Grouped computation for state elements
@@ -226,13 +286,22 @@ export function ReportsView({ assets, locations, responsibles }: ReportsViewProp
           </h1>
           <p className="text-sm text-slate-500">Gere demonstrativos detalhados ou estruturados da sua base de ativos patrimoniais.</p>
         </div>
-        <button
-          onClick={handlePrint}
-          className="flex items-center justify-center gap-2 bg-indigo-650 hover:bg-indigo-700 text-indigo-700 bg-indigo-50 border border-indigo-200 font-bold px-4 py-2.5 rounded-xl text-xs transition-all shadow-xs cursor-pointer select-none shrink-0"
-        >
-          <Printer className="w-4 h-4" />
-          <span>Imprimir / Salvar em PDF</span>
-        </button>
+        <div className="flex items-center gap-2.5 md:self-end">
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-700 border border-emerald-200 font-bold px-4 py-2.5 rounded-xl text-xs transition-all shadow-xs cursor-pointer select-none shrink-0"
+          >
+            <Download className="w-4 h-4" />
+            <span>Exportar CSV</span>
+          </button>
+          <button
+            onClick={handlePrint}
+            className="flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100/80 text-indigo-700 border border-indigo-200 font-bold px-4 py-2.5 rounded-xl text-xs transition-all shadow-xs cursor-pointer select-none shrink-0"
+          >
+            <Printer className="w-4 h-4" />
+            <span>Imprimir / Salvar em PDF</span>
+          </button>
+        </div>
       </div>
 
       {/* System Brand Header Visible Only On Printouts */}
