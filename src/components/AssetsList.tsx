@@ -45,6 +45,15 @@ export function AssetsList({
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Reset currentPage to 1 when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedCategory, selectedLocation, selectedStatus]);
+
   // Form states
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [errorText, setErrorText] = useState('');
@@ -158,6 +167,29 @@ export function AssetsList({
 
     return matchesSearch && matchesCategory && matchesLocation && matchesStatus;
   });
+
+  const totalItems = filteredAssets.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedAssets = filteredAssets.slice(startIndex, startIndex + itemsPerPage);
+
+  const getPageNumbers = () => {
+    const pageNumbers: (number | string)[] = [];
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) {
+        pageNumbers.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        pageNumbers.push(1, 2, 3, 4, '...', totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pageNumbers.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pageNumbers.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+      }
+    }
+    return pageNumbers;
+  };
 
   const getCategoryBadge = (category: AssetCategory) => {
     switch (category) {
@@ -364,143 +396,199 @@ export function AssetsList({
       {/* Main List Table */}
       <div className="bg-white border border-slate-100 rounded-2xl shadow-xs overflow-hidden" id="assets-table-container">
         {filteredAssets.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse" id="assets-table">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-150 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  <th className="p-4 w-28">Etiqueta</th>
-                  <th className="p-4">Ativo Patrimonial</th>
-                  <th className="p-4">Categoria</th>
-                  <th className="p-4">Alocação Atual</th>
-                  <th className="p-4">Responsável</th>
-                  <th className="p-4 text-right">Valor</th>
-                  <th className="p-4 text-center">Status</th>
-                  {canModify && <th className="p-4 text-center w-24">Ações</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                {filteredAssets.map((asset) => {
-                  const loc = locations.find((l) => l.id === asset.locationId);
-                  const resp = responsibles.find((r) => r.id === asset.responsibleId);
-                  const catInfo = getCategoryBadge(asset.category);
-                  const statInfo = getStatusBadge(asset.status);
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse" id="assets-table">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-150 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    <th className="p-4 w-28">Etiqueta</th>
+                    <th className="p-4">Ativo Patrimonial</th>
+                    <th className="p-4">Categoria</th>
+                    <th className="p-4">Alocação Atual</th>
+                    <th className="p-4">Responsável</th>
+                    <th className="p-4 text-right">Valor</th>
+                    <th className="p-4 text-center">Status</th>
+                    {canModify && <th className="p-4 text-center w-24">Ações</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                  {paginatedAssets.map((asset) => {
+                    const loc = locations.find((l) => l.id === asset.locationId);
+                    const resp = responsibles.find((r) => r.id === asset.responsibleId);
+                    const catInfo = getCategoryBadge(asset.category);
+                    const statInfo = getStatusBadge(asset.status);
 
-                  return (
-                    <tr key={asset.id} className="hover:bg-slate-50/50 transition-colors">
-                      {/* Heritage Tag */}
-                      <td className="p-4">
-                        <div className="flex items-center gap-1 text-xs font-mono font-bold text-slate-900 bg-slate-50 px-2 py-1 rounded-md border border-slate-100 max-w-fit">
-                          <Barcode className="w-3.5 h-3.5 text-indigo-500" />
-                          <span>{asset.tag}</span>
-                        </div>
-                      </td>
-
-                      {/* Main asset names */}
-                      <td className="p-4 max-w-xs">
-                        <div className="flex items-center gap-3">
-                          {asset.photo ? (
-                            <div className="relative group shrink-0">
-                              <img 
-                                src={asset.photo} 
-                                alt={asset.name} 
-                                onClick={() => setSelectedPhoto(asset.photo || null)}
-                                className="w-10 h-10 object-cover rounded-lg border border-slate-200 cursor-zoom-in hover:scale-105 transition-all" 
-                              />
-                              <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg pointer-events-none transition-opacity">
-                                <Maximize2 className="w-3 h-3 text-white" />
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="w-10 h-10 bg-slate-50 border border-slate-150 rounded-lg flex items-center justify-center text-slate-350 shrink-0 select-none">
-                              <Camera className="w-4 h-4 text-slate-400" />
-                            </div>
-                          )}
-                          <div className="min-w-0">
-                            <h4 className="font-bold text-slate-900 truncate" title={asset.name}>{asset.name}</h4>
-                            <p className="text-xs text-slate-405 truncate mt-0.5" title={asset.description}>{asset.description || 'Sem descrição'}</p>
-                            {(asset.brand || asset.model) && (
-                              <div className="text-[10px] text-slate-400 mt-0.5 flex gap-1">
-                                {asset.brand && <span className="bg-slate-100 px-1 py-0.5 rounded-sm">Marca: {asset.brand}</span>}
-                                {asset.model && <span className="bg-slate-100 px-1 py-0.5 rounded-sm">Modelo: {asset.model}</span>}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Category */}
-                      <td className="p-4">
-                        <span className={`text-xs px-2.5 py-1 rounded-lg border font-medium ${catInfo.bg}`}>
-                          {catInfo.label}
-                        </span>
-                      </td>
-
-                      {/* Physical Location */}
-                      <td className="p-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-slate-600">
-                            <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span className="truncate max-w-[150px] font-semibold text-slate-800" title={loc ? loc.name : 'Não alocado'}>
-                              {loc ? loc.name : 'Não alocado'}
-                            </span>
-                          </div>
-                          {loc && (
-                            <span className="inline-block text-[9px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded-sm border border-slate-200/60 leading-none">
-                              {loc.branch || 'Matriz'}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Responsible Person */}
-                      <td className="p-4">
-                        <div className="flex items-center gap-2 text-slate-600">
-                          <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="truncate max-w-[130px]" title={resp ? resp.name : 'Sem responsável'}>
-                            {resp ? resp.name : 'Sem responsável'}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Procurement Value */}
-                      <td className="p-4 text-right font-mono font-bold text-slate-900">
-                        {formatBRL(asset.value)}
-                      </td>
-
-                      {/* Condition Status */}
-                      <td className="p-4 text-center">
-                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${statInfo.bg}`}>
-                          {statInfo.label}
-                        </span>
-                      </td>
-
-                      {/* Commands */}
-                      {canModify && (
+                    return (
+                      <tr key={asset.id} className="hover:bg-slate-50/50 transition-colors">
+                        {/* Heritage Tag */}
                         <td className="p-4">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              onClick={() => openEditForm(asset)}
-                              className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-indigo-600 border border-slate-200/50 transition-colors cursor-pointer"
-                              title="Editar Ativo"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(asset.id, asset.tag)}
-                              className="p-1.5 rounded-lg bg-slate-50 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200/50 transition-colors cursor-pointer"
-                              title="Remover Ativo"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                          <div className="flex items-center gap-1 text-xs font-mono font-bold text-slate-900 bg-slate-50 px-2 py-1 rounded-md border border-slate-100 max-w-fit">
+                            <Barcode className="w-3.5 h-3.5 text-indigo-500" />
+                            <span>{asset.tag}</span>
                           </div>
                         </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+
+                        {/* Main asset names */}
+                        <td className="p-4 max-w-xs">
+                          <div className="flex items-center gap-3">
+                            {asset.photo ? (
+                              <div className="relative group shrink-0">
+                                <img 
+                                  src={asset.photo} 
+                                  alt={asset.name} 
+                                  onClick={() => setSelectedPhoto(asset.photo || null)}
+                                  className="w-10 h-10 object-cover rounded-lg border border-slate-200 cursor-zoom-in hover:scale-105 transition-all" 
+                                />
+                                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg pointer-events-none transition-opacity">
+                                  <Maximize2 className="w-3 h-3 text-white" />
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="w-10 h-10 bg-slate-50 border border-slate-150 rounded-lg flex items-center justify-center text-slate-350 shrink-0 select-none">
+                                <Camera className="w-4 h-4 text-slate-400" />
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <h4 className="font-bold text-slate-900 truncate" title={asset.name}>{asset.name}</h4>
+                              <p className="text-xs text-slate-405 truncate mt-0.5" title={asset.description}>{asset.description || 'Sem descrição'}</p>
+                              {(asset.brand || asset.model) && (
+                                <div className="text-[10px] text-slate-400 mt-0.5 flex gap-1">
+                                  {asset.brand && <span className="bg-slate-100 px-1 py-0.5 rounded-sm">Marca: {asset.brand}</span>}
+                                  {asset.model && <span className="bg-slate-100 px-1 py-0.5 rounded-sm">Modelo: {asset.model}</span>}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Category */}
+                        <td className="p-4">
+                          <span className={`text-xs px-2.5 py-1 rounded-lg border font-medium ${catInfo.bg}`}>
+                            {catInfo.label}
+                          </span>
+                        </td>
+
+                        {/* Physical Location */}
+                        <td className="p-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 text-slate-600">
+                              <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <span className="truncate max-w-[150px] font-semibold text-slate-800" title={loc ? loc.name : 'Não alocado'}>
+                                {loc ? loc.name : 'Não alocado'}
+                              </span>
+                            </div>
+                            {loc && (
+                              <span className="inline-block text-[9px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded-sm border border-slate-200/60 leading-none">
+                                {loc.branch || 'Matriz'}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Responsible Person */}
+                        <td className="p-4">
+                          <div className="flex items-center gap-2 text-slate-600">
+                            <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate max-w-[130px]" title={resp ? resp.name : 'Sem responsável'}>
+                              {resp ? resp.name : 'Sem responsável'}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Procurement Value */}
+                        <td className="p-4 text-right font-mono font-bold text-slate-900">
+                          {formatBRL(asset.value)}
+                        </td>
+
+                        {/* Condition Status */}
+                        <td className="p-4 text-center">
+                          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${statInfo.bg}`}>
+                            {statInfo.label}
+                          </span>
+                        </td>
+
+                        {/* Commands */}
+                        {canModify && (
+                          <td className="p-4">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => openEditForm(asset)}
+                                className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-indigo-600 border border-slate-200/50 transition-colors cursor-pointer"
+                                title="Editar Ativo"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(asset.id, asset.tag)}
+                                className="p-1.5 rounded-lg bg-slate-50 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200/50 transition-colors cursor-pointer"
+                                title="Remover Ativo"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls Footer */}
+            <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-500 select-none">
+              <div>
+                Exibindo <span className="text-slate-800 font-bold">{startIndex + 1}</span> a{' '}
+                <span className="text-slate-800 font-bold">
+                  {Math.min(startIndex + itemsPerPage, totalItems)}
+                </span>{' '}
+                de <span className="text-slate-800 font-bold">{totalItems}</span> ativos
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-650 hover:bg-slate-50 hover:text-slate-800 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer font-bold"
+                >
+                  Anterior
+                </button>
+                <div className="flex items-center gap-1">
+                  {getPageNumbers().map((pageNum, idx) => {
+                    if (pageNum === '...') {
+                      return (
+                        <span key={`dots-${idx}`} className="px-2 text-slate-400 font-bold">
+                          ...
+                        </span>
+                      );
+                    }
+                    return (
+                      <button
+                        key={`page-${pageNum}`}
+                        type="button"
+                        onClick={() => setCurrentPage(pageNum as number)}
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center border transition-all cursor-pointer text-xs font-bold ${
+                          currentPage === pageNum
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-650 hover:bg-slate-50 hover:text-slate-800 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer font-bold"
+                >
+                  Próximo
+                </button>
+              </div>
+            </div>
+          </>
         ) : (
           <div className="p-12 text-center" id="assets-empty">
             <Tag className="w-12 h-12 text-slate-200 mx-auto mb-3" />

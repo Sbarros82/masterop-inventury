@@ -114,6 +114,15 @@ export function ReportsView({ assets, locations, responsibles }: ReportsViewProp
       {/* Printable CSS Hook Injection */}
       <style>{`
         @media print {
+          html, body, #app-root-shell, #main-frame, main, #scrollable-content-wrapper, .overflow-y-auto, .overflow-hidden, #reports-view-module {
+            position: static !important;
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            overflow-y: visible !important;
+            display: block !important;
+          }
           body {
             background: white !important;
             color: black !important;

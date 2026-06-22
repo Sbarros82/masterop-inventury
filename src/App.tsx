@@ -540,7 +540,7 @@ export default function App() {
         )}
 
         {/* Scrollable View Container */}
-        <div className="p-6 md:p-8 space-y-6 flex-1 overflow-y-auto max-w-7xl mx-auto w-full">
+        <div id="scrollable-content-wrapper" className="p-6 md:p-8 space-y-6 flex-1 overflow-y-auto max-w-7xl mx-auto w-full">
           
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-64 space-y-4">
