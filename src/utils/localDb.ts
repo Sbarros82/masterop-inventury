@@ -101,6 +101,25 @@ export function localAddLocation(locData: Omit<Location, 'id'>): Location {
   return newLoc;
 }
 
+export function localUpdateLocation(id: string, locData: Partial<Location>): void {
+  const db = getLocalDb();
+  const index = db.locations.findIndex(l => l.id === id);
+  if (index !== -1) {
+    db.locations[index] = { ...db.locations[index], ...locData };
+    saveLocalDb(db);
+  }
+}
+
+export function localDeleteLocation(id: string): void {
+  const db = getLocalDb();
+  const hasAssets = db.assets.some(a => a.locationId === id);
+  if (hasAssets) {
+    throw new Error("Não é possível excluir esta localização pois existem ativos vinculados a ela. Transfira os ativos para outro local antes de excluir.");
+  }
+  db.locations = db.locations.filter(l => l.id !== id);
+  saveLocalDb(db);
+}
+
 export function localGetResponsibles(): Responsible[] {
   return getLocalDb().responsibles;
 }

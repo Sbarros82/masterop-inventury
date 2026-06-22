@@ -402,6 +402,20 @@ export async function fbAddLocation(locData: Omit<Location, 'id'>): Promise<Loca
   return loc;
 }
 
+export async function fbUpdateLocation(id: string, updatedFields: Partial<Location>): Promise<void> {
+  const dRef = doc(db, 'locations', id);
+  await setDoc(dRef, updatedFields, { merge: true });
+}
+
+export async function fbDeleteLocation(id: string): Promise<void> {
+  const assets = await fbGetAssets();
+  const hasAssets = assets.some(a => a.locationId === id);
+  if (hasAssets) {
+    throw new Error("Não é possível excluir esta localização pois existem ativos vinculados a ela. Transfira os ativos para outro local antes de excluir.");
+  }
+  await deleteDoc(doc(db, 'locations', id));
+}
+
 export async function fbAddResponsible(respData: Omit<Responsible, 'id'>): Promise<Responsible> {
   const newId = 'resp-' + Date.now();
   const resp: Responsible = {

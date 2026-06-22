@@ -46,6 +46,8 @@ import {
   localDeleteAsset,
   localGetLocations,
   localAddLocation,
+  localUpdateLocation,
+  localDeleteLocation,
   localGetResponsibles,
   localAddResponsible,
   localGetMovements,
@@ -70,6 +72,8 @@ import {
   fbGetInventories,
   fbAddAsset,
   fbAddLocation,
+  fbUpdateLocation,
+  fbDeleteLocation,
   fbAddResponsible,
   fbUpdateAsset,
   fbDeleteAsset,
@@ -342,6 +346,36 @@ export default function App() {
     }
   };
 
+  // Update physical Location
+  const handleUpdateLocation = async (id: string, locData: Partial<Location>) => {
+    try {
+      if (localMode) {
+        localUpdateLocation(id, locData);
+      } else {
+        await fbUpdateLocation(id, locData);
+      }
+      await refreshAllData();
+    } catch (err: any) {
+      alert(err.message);
+      throw err;
+    }
+  };
+
+  // Delete physical Location
+  const handleDeleteLocation = async (id: string) => {
+    try {
+      if (localMode) {
+        localDeleteLocation(id);
+      } else {
+        await fbDeleteLocation(id);
+      }
+      await refreshAllData();
+    } catch (err: any) {
+      alert(err.message);
+      throw err;
+    }
+  };
+
   // Add custom Responsible guardian
   const handleAddResponsible = async (respData: Omit<Responsible, 'id'>) => {
     try {
@@ -576,6 +610,8 @@ export default function App() {
                   responsibles={responsibles}
                   currentUser={currentUser}
                   onAddLocation={handleAddLocation}
+                  onUpdateLocation={handleUpdateLocation}
+                  onDeleteLocation={handleDeleteLocation}
                   onAddResponsible={handleAddResponsible}
                 />
               )}

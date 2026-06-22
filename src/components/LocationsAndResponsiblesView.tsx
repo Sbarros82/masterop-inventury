@@ -11,7 +11,9 @@ import {
   Briefcase,
   Layers,
   X,
-  AlertCircle
+  AlertCircle,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 import { Location, Responsible, User as UserType } from '../types';
 
@@ -20,6 +22,8 @@ interface LocationsAndResponsiblesViewProps {
   responsibles: Responsible[];
   currentUser: UserType;
   onAddLocation: (data: Omit<Location, 'id'>) => Promise<void>;
+  onUpdateLocation: (id: string, data: Partial<Location>) => Promise<void>;
+  onDeleteLocation: (id: string) => Promise<void>;
   onAddResponsible: (data: Omit<Responsible, 'id'>) => Promise<void>;
 }
 
@@ -28,6 +32,8 @@ export function LocationsAndResponsiblesView({
   responsibles,
   currentUser,
   onAddLocation,
+  onUpdateLocation,
+  onDeleteLocation,
   onAddResponsible
 }: LocationsAndResponsiblesViewProps) {
   const [activeSubTab, setActiveSubTab] = useState<'locations' | 'responsibles'>('locations');
@@ -36,6 +42,7 @@ export function LocationsAndResponsiblesView({
   const [errorText, setErrorText] = useState('');
 
   // Location Form
+  const [editingLocId, setEditingLocId] = useState<string | null>(null);
   const [locName, setLocName] = useState('');
   const [locBuilding, setLocBuilding] = useState('');
   const [locFloor, setLocFloor] = useState('');
@@ -48,6 +55,37 @@ export function LocationsAndResponsiblesView({
   const [respDept, setRespDept] = useState('');
 
   const canModify = currentUser.role === 'admin' || currentUser.role === 'operator';
+
+  const handleStartEditLoc = (loc: Location) => {
+    setErrorText('');
+    setEditingLocId(loc.id);
+    setLocName(loc.name);
+    setLocBranch(loc.branch || 'Matriz');
+    setLocBuilding(loc.building);
+    setLocFloor(loc.floor);
+    setLocDesc(loc.description || '');
+    setIsLocModalOpen(true);
+  };
+
+  const handleCloseLocModal = () => {
+    setIsLocModalOpen(false);
+    setEditingLocId(null);
+    setLocName('');
+    setLocBranch('');
+    setLocBuilding('');
+    setLocFloor('');
+    setLocDesc('');
+  };
+
+  const handleDeleteLocClick = async (locId: string) => {
+    const confirmDel = window.confirm("⚠️ ATENÇÃO: Tem certeza de que realmente deseja excluir esta localização? Essa ação não pode ser desfeita.");
+    if (!confirmDel) return;
+    try {
+      await onDeleteLocation(locId);
+    } catch (err: any) {
+      alert(err.message || "Erro ao excluir localização.");
+    }
+  };
 
   const handleLocSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,21 +101,26 @@ export function LocationsAndResponsiblesView({
     }
 
     try {
-      await onAddLocation({
-        name: locName,
-        building: locBuilding,
-        floor: locFloor,
-        description: locDesc,
-        branch: locBranch || 'Matriz'
-      });
-      setIsLocModalOpen(false);
-      setLocName('');
-      setLocBuilding('');
-      setLocFloor('');
-      setLocDesc('');
-      setLocBranch('');
+      if (editingLocId) {
+        await onUpdateLocation(editingLocId, {
+          name: locName,
+          building: locBuilding,
+          floor: locFloor,
+          description: locDesc,
+          branch: locBranch || 'Matriz'
+        });
+      } else {
+        await onAddLocation({
+          name: locName,
+          building: locBuilding,
+          floor: locFloor,
+          description: locDesc,
+          branch: locBranch || 'Matriz'
+        });
+      }
+      handleCloseLocModal();
     } catch (err: any) {
-      setErrorText(err.message || 'Erro ao criar nova localização.');
+      setErrorText(err.message || 'Erro ao salvar a localização.');
     }
   };
 
@@ -152,7 +195,7 @@ export function LocationsAndResponsiblesView({
             {canModify && (
               <button
                 onClick={() => {
-                  setErrorText('');
+                  handleCloseLocModal();
                   setIsLocModalOpen(true);
                 }}
                 className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors cursor-pointer"
@@ -166,30 +209,53 @@ export function LocationsAndResponsiblesView({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {locations.map((loc) => (
               <div key={loc.id} className="p-5 bg-white border border-slate-100 rounded-2xl hover:border-indigo-150 transition-all flex flex-col justify-between shadow-xs">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-[10px] font-mono bg-slate-50 text-indigo-600 border border-slate-100 rounded-md py-0.5 px-2 max-w-fit font-bold">
-                      <Hash className="w-3 h-3" />
-                      <span>{loc.id}</span>
+                <div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-[10px] font-mono bg-slate-50 text-indigo-600 border border-slate-100 rounded-md py-0.5 px-2 max-w-fit font-bold">
+                        <Hash className="w-3 h-3" />
+                        <span>{loc.id}</span>
+                      </div>
+                      <span className="text-[10px] bg-indigo-50/60 text-indigo-700 font-bold px-2 py-0.5 rounded-md border border-indigo-100/40">
+                        Filial: {loc.branch || 'Matriz'}
+                      </span>
                     </div>
-                    <span className="text-[10px] bg-indigo-50/60 text-indigo-700 font-bold px-2 py-0.5 rounded-md border border-indigo-100/40">
-                      Filial: {loc.branch || 'Matriz'}
-                    </span>
+                    <h4 className="font-bold text-slate-800 text-sm leading-tight">{loc.name}</h4>
+                    <p className="text-xs text-slate-500 leading-normal">{loc.description || 'Sem descrição física declarada.'}</p>
                   </div>
-                  <h4 className="font-bold text-slate-800 text-sm leading-tight">{loc.name}</h4>
-                  <p className="text-xs text-slate-500 leading-normal">{loc.description || 'Sem descrição física declarada.'}</p>
+
+                  <div className="border-t border-slate-50/80 mt-4 pt-3 grid grid-cols-2 gap-2 text-[10px] font-semibold text-slate-400">
+                    <div>
+                      <span className="uppercase block font-bold text-[9px] text-slate-300">Edifício</span>
+                      <span className="text-slate-650 font-bold truncate block mt-0.5">{loc.building}</span>
+                    </div>
+                    <div>
+                      <span className="uppercase block font-bold text-[9px] text-slate-300">Andar / Pavimento</span>
+                      <span className="text-slate-650 font-bold truncate block mt-0.5">{loc.floor || 'Térreo'}</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="border-t border-slate-50/80 mt-4 pt-3 grid grid-cols-2 gap-2 text-[10px] font-semibold text-slate-400">
-                  <div>
-                    <span className="uppercase block font-bold text-[9px] text-slate-300">Edifício</span>
-                    <span className="text-slate-650 font-bold truncate block mt-0.5">{loc.building}</span>
+                {canModify && (
+                  <div className="border-t border-slate-100 mt-4 pt-3 flex items-center justify-end gap-3 text-[11px]">
+                    <button
+                      onClick={() => handleStartEditLoc(loc)}
+                      className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50/80 px-2.5 py-1 rounded-lg transition-colors cursor-pointer font-bold"
+                      title="Editar localização"
+                    >
+                      <Pencil className="w-3 h-3 text-indigo-500" />
+                      <span>Editar</span>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteLocClick(loc.id)}
+                      className="flex items-center gap-1.5 text-rose-600 hover:text-rose-800 hover:bg-rose-50/80 px-2.5 py-1 rounded-lg transition-colors cursor-pointer font-bold"
+                      title="Excluir localização"
+                    >
+                      <Trash2 className="w-3 h-3 text-rose-500" />
+                      <span>Excluir</span>
+                    </button>
                   </div>
-                  <div>
-                    <span className="uppercase block font-bold text-[9px] text-slate-300">Andar / Pavimento</span>
-                    <span className="text-slate-650 font-bold truncate block mt-0.5">{loc.floor || 'Térreo'}</span>
-                  </div>
-                </div>
+                )}
               </div>
             ))}
           </div>
@@ -244,17 +310,21 @@ export function LocationsAndResponsiblesView({
         </div>
       )}
 
-      {/* CREATE LOCATION MODAL */}
+      {/* CREATE/EDIT LOCATION MODAL */}
       {isLocModalOpen && (
         <div id="loc-modal" className="fixed inset-0 bg-slate-900/40 backup-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-100 transform scale-100 transition-all">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Cadastrar Nova Localização</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Defina salas, galpões ou escritórios para acomodar ativos.</p>
+                <h3 className="text-lg font-bold text-slate-900">
+                  {editingLocId ? 'Editar Localização / Unidade' : 'Cadastrar Nova Localização'}
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {editingLocId ? 'Altere as informações cadastrais do local selecionado.' : 'Defina salas, galpões ou escritórios para acomodar ativos.'}
+                </p>
               </div>
               <button 
-                onClick={() => setIsLocModalOpen(false)}
+                onClick={handleCloseLocModal}
                 className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -335,7 +405,7 @@ export function LocationsAndResponsiblesView({
               <div className="border-t border-slate-100 my-4 pt-4 flex items-center justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsLocModalOpen(false)}
+                  onClick={handleCloseLocModal}
                   className="px-4 py-2 text-xs font-semibold border border-slate-200 text-slate-500 hover:bg-slate-50 rounded-xl transition-all cursor-pointer"
                 >
                   Cancelar
@@ -344,7 +414,7 @@ export function LocationsAndResponsiblesView({
                   type="submit"
                   className="px-4 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all cursor-pointer"
                 >
-                  Cadastrar Unidade
+                  {editingLocId ? 'Salvar Alterações' : 'Cadastrar Unidade'}
                 </button>
               </div>
             </form>
