@@ -22,6 +22,7 @@ export function Dashboard({ stats, onNavigateToTab }: DashboardProps) {
   const getCategoryLabel = (cat: AssetCategory) => {
     switch (cat) {
       case 'furniture': return 'Móveis e Utensílios';
+      case 'electronics': return 'Eletroeletrônicos';
       case 'it': return 'Equipamentos de TI';
       case 'machinery': return 'Máquinas e Ferramentas';
       case 'vehicles': return 'Veículos';
@@ -151,6 +152,7 @@ export function Dashboard({ stats, onNavigateToTab }: DashboardProps) {
                       className={`h-full rounded-full transition-all duration-1000 ${
                         catTyped === 'it' ? 'bg-indigo-500' :
                         catTyped === 'furniture' ? 'bg-blue-400' :
+                        catTyped === 'electronics' ? 'bg-pink-400' :
                         catTyped === 'machinery' ? 'bg-amber-500' :
                         catTyped === 'vehicles' ? 'bg-teal-500' : 'bg-slate-400'
                       }`}

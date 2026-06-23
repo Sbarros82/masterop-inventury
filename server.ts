@@ -349,7 +349,7 @@ async function startServer() {
     const db = loadDb();
     
     const assets = db.assets;
-    const distributions_cat = { furniture: 0, it: 0, machinery: 0, vehicles: 0, other: 0 };
+    const distributions_cat = { furniture: 0, it: 0, machinery: 0, vehicles: 0, electronics: 0, other: 0 };
     const distributions_status = { active: 0, maintenance: 0, transferred: 0, retired: 0 };
 
     let totalValue = 0;

@@ -568,7 +568,7 @@ export async function fbGetStats(providedAssets?: Asset[], providedMaintenances?
   const assets = providedAssets || await fbGetAssets();
   const maintenances = providedMaintenances || await fbGetMaintenances();
 
-  const distributions_cat: Record<AssetCategory, number> = { furniture: 0, it: 0, machinery: 0, vehicles: 0, other: 0 };
+  const distributions_cat: Record<AssetCategory, number> = { furniture: 0, it: 0, machinery: 0, vehicles: 0, electronics: 0, other: 0 };
   const distributions_status: Record<AssetStatus, number> = { active: 0, maintenance: 0, transferred: 0, retired: 0 };
 
   let totalValue = 0;

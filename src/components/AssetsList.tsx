@@ -195,6 +195,8 @@ export function AssetsList({
     switch (category) {
       case 'furniture':
         return { label: 'Móveis', bg: 'bg-blue-50 text-blue-600 border-blue-100' };
+      case 'electronics':
+        return { label: 'Eletroeletrônicos', bg: 'bg-pink-50 text-pink-600 border-pink-100' };
       case 'it':
         return { label: 'TI / Informática', bg: 'bg-indigo-50 text-indigo-600 border-indigo-100' };
       case 'machinery':
@@ -350,6 +352,7 @@ export function AssetsList({
               >
                 <option value="all">Todas Categorias</option>
                 <option value="furniture">Móveis</option>
+                <option value="electronics">Eletroeletrônicos</option>
                 <option value="it">TI / Informática</option>
                 <option value="machinery">Máquinas</option>
                 <option value="vehicles">Veículos</option>
@@ -660,6 +663,7 @@ export function AssetsList({
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-hidden text-slate-800 cursor-pointer"
                   >
                     <option value="furniture">Móveis e Utensílios</option>
+                    <option value="electronics">Eletroeletrônicos</option>
                     <option value="it">Equipamentos TI</option>
                     <option value="machinery">Máquinas e Ferramentas</option>
                     <option value="vehicles">Veículos corporativos</option>

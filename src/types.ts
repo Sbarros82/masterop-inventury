@@ -6,7 +6,7 @@ export interface User {
 }
 
 export type AssetStatus = 'active' | 'maintenance' | 'transferred' | 'retired';
-export type AssetCategory = 'furniture' | 'it' | 'machinery' | 'vehicles' | 'other';
+export type AssetCategory = 'furniture' | 'it' | 'machinery' | 'vehicles' | 'electronics' | 'other';
 
 export interface Asset {
   id: string;

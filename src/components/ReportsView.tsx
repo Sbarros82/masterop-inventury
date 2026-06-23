@@ -83,6 +83,7 @@ export function ReportsView({ assets, locations, responsibles }: ReportsViewProp
   const getCategoryLabel = (cat: AssetCategory) => {
     switch (cat) {
       case 'furniture': return 'Móveis e Utensílios';
+      case 'electronics': return 'Eletroeletrônicos';
       case 'it': return 'Equipamentos TI';
       case 'machinery': return 'Máquinas e Ferramentas';
       case 'vehicles': return 'Veículos';
@@ -166,7 +167,7 @@ export function ReportsView({ assets, locations, responsibles }: ReportsViewProp
   // Grouped computation for state elements
   const getSyntheticGroups = () => {
     if (groupBy === 'category') {
-      const categories: AssetCategory[] = ['furniture', 'it', 'machinery', 'vehicles', 'other'];
+      const categories: AssetCategory[] = ['furniture', 'electronics', 'it', 'machinery', 'vehicles', 'other'];
       return categories.map(cat => {
         const items = filteredAssets.filter(a => a.category === cat);
         const count = items.length;
@@ -403,6 +404,7 @@ export function ReportsView({ assets, locations, responsibles }: ReportsViewProp
                 >
                   <option value="all">Todas as Categorias</option>
                   <option value="furniture">Móveis e Utensílios</option>
+                  <option value="electronics">Eletroeletrônicos</option>
                   <option value="it">Equipamentos TI</option>
                   <option value="machinery">Máquinas e Ferramentas</option>
                   <option value="vehicles">Veículos</option>

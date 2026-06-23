@@ -115,7 +115,7 @@ export default function App() {
     totalValue: 0,
     maintenanceCount: 0,
     pendingMovementsCount: 0,
-    categoryDistribution: { furniture: 0, it: 0, machinery: 0, vehicles: 0, other: 0 },
+    categoryDistribution: { furniture: 0, it: 0, machinery: 0, vehicles: 0, electronics: 0, other: 0 },
     statusDistribution: { active: 0, maintenance: 0, transferred: 0, retired: 0 },
     monthlyAcquisitions: []
   });
