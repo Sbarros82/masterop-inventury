@@ -58,6 +58,7 @@ export function AssetsList({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [errorText, setErrorText] = useState('');
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+  const [selectedAssetForView, setSelectedAssetForView] = useState<Asset | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -302,6 +303,25 @@ export function AssetsList({
     }
   };
 
+  const handleRowClick = (asset: Asset, e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('a') || (target.tagName === 'IMG' && target.classList.contains('cursor-zoom-in'))) {
+      return;
+    }
+    setSelectedAssetForView(asset);
+  };
+
+  const formatDateBR = (dateStr: string) => {
+    if (!dateStr) return 'N/D';
+    try {
+      const parts = dateStr.split('T')[0].split('-');
+      if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+    } catch (e) {}
+    return dateStr;
+  };
+
   const formatBRL = (val: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
@@ -422,7 +442,12 @@ export function AssetsList({
                     const statInfo = getStatusBadge(asset.status);
 
                     return (
-                      <tr key={asset.id} className="hover:bg-slate-50/50 transition-colors">
+                      <tr 
+                        key={asset.id} 
+                        onClick={(e) => handleRowClick(asset, e)}
+                        className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                        title="Clique para ver os detalhes completos deste ativo"
+                      >
                         {/* Heritage Tag */}
                         <td className="p-4">
                           <div className="flex items-center gap-1 text-xs font-mono font-bold text-slate-900 bg-slate-50 px-2 py-1 rounded-md border border-slate-100 max-w-fit">
@@ -913,6 +938,192 @@ export function AssetsList({
           </div>
         </div>
       )}
+
+      {/* Detalhes do Ativo Modal */}
+      {selectedAssetForView && (() => {
+        const loc = locations.find((l) => l.id === selectedAssetForView.locationId);
+        const resp = responsibles.find((r) => r.id === selectedAssetForView.responsibleId);
+        const catInfo = getCategoryBadge(selectedAssetForView.category);
+        const statInfo = getStatusBadge(selectedAssetForView.status);
+
+        return (
+          <div 
+            id="asset-detail-modal" 
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto animate-fade-in"
+            onClick={() => setSelectedAssetForView(null)}
+          >
+            <div 
+              className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl border border-slate-100 transform scale-100 transition-all overflow-hidden flex flex-col md:flex-row"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Left Column: Asset Photo if exists */}
+              {selectedAssetForView.photo ? (
+                <div className="w-full md:w-52 h-48 md:h-auto bg-slate-50 border-r border-slate-100 relative shrink-0">
+                  <img 
+                    src={selectedAssetForView.photo} 
+                    alt={selectedAssetForView.name} 
+                    className="w-full h-full object-cover"
+                  />
+                  <button 
+                    onClick={() => setSelectedPhoto(selectedAssetForView.photo || null)}
+                    className="absolute bottom-3 right-3 bg-slate-900/85 hover:bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <Maximize2 className="w-3 h-3" />
+                    <span>Zoom</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="w-full md:w-48 h-40 md:h-auto bg-slate-50 border-r border-slate-100 flex flex-col items-center justify-center text-slate-350 p-4 shrink-0 gap-2">
+                  <Camera className="w-10 h-10 text-slate-300" />
+                  <span className="text-xs text-slate-400">Sem Foto</span>
+                </div>
+              )}
+
+              {/* Right/Main Content Column */}
+              <div className="flex-1 flex flex-col min-w-0">
+                {/* Header */}
+                <div className="p-5 border-b border-slate-100 flex items-start justify-between gap-4">
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${statInfo.bg}`}>
+                        {statInfo.label}
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${catInfo.bg}`}>
+                        {catInfo.label}
+                      </span>
+                    </div>
+                    <h3 className="text-base font-black text-slate-900 leading-snug break-words pr-2">
+                      {selectedAssetForView.name}
+                    </h3>
+                  </div>
+                  <button 
+                    onClick={() => setSelectedAssetForView(null)}
+                    className="w-7 h-7 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer shrink-0"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Details Body */}
+                <div className="p-5 space-y-4 text-xs overflow-y-auto max-h-[60vh] md:max-h-[50vh]">
+                  {/* Tag and Barcode Section */}
+                  <div className="bg-slate-50 border border-slate-150 rounded-xl p-3 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Etiqueta Patrimonial</span>
+                      <span className="font-mono text-sm font-black text-slate-900 mt-0.5 block">{selectedAssetForView.tag}</span>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <Barcode className="w-8 h-8 text-slate-400" />
+                      <span className="text-[9px] font-mono font-semibold text-slate-405 mt-0.5">Identificador de Inventário</span>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  {selectedAssetForView.description && (
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Descrição / Observações</span>
+                      <p className="text-slate-700 bg-slate-50/50 p-3 rounded-xl border border-slate-100 leading-relaxed font-medium">
+                        {selectedAssetForView.description}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Property Details Grid */}
+                  <div className="grid grid-cols-2 gap-3.5">
+                    {/* Alocação */}
+                    <div className="bg-slate-50/40 p-3 rounded-xl border border-slate-100 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Localização Alocada</span>
+                      <span className="font-bold text-slate-800 block truncate" title={loc ? loc.name : 'Não alocado'}>
+                        {loc ? loc.name : 'Não alocado'}
+                      </span>
+                      {loc && (
+                        <span className="inline-block text-[9px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded-sm border border-slate-200/60 leading-none">
+                          {loc.branch || 'Matriz'}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Responsável */}
+                    <div className="bg-slate-50/40 p-3 rounded-xl border border-slate-100 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Colaborador Responsável</span>
+                      <span className="font-bold text-slate-800 block truncate" title={resp ? resp.name : 'Sem responsável'}>
+                        {resp ? resp.name : 'Sem responsável'}
+                      </span>
+                      {resp && (
+                        <span className="inline-block text-[9px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded-sm border border-slate-200/60 leading-none">
+                          {resp.department || 'N/D'}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Valor de Aquisição */}
+                    <div className="bg-slate-50/40 p-3 rounded-xl border border-slate-100 space-y-0.5">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Valor de Aquisição</span>
+                      <span className="font-mono text-sm font-extrabold text-slate-900 block">
+                        {formatBRL(selectedAssetForView.value)}
+                      </span>
+                    </div>
+
+                    {/* Data de Aquisição */}
+                    <div className="bg-slate-50/40 p-3 rounded-xl border border-slate-100 space-y-0.5">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Data de Aquisição</span>
+                      <span className="font-bold text-slate-800 block">
+                        {formatDateBR(selectedAssetForView.acquisitionDate)}
+                      </span>
+                    </div>
+
+                    {/* Marca e Modelo */}
+                    <div className="bg-slate-50/40 p-3 rounded-xl border border-slate-100 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Marca / Fabricante</span>
+                      <span className="font-bold text-slate-800 block">
+                        {selectedAssetForView.brand || <span className="text-slate-350">N/D</span>}
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-50/40 p-3 rounded-xl border border-slate-100 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Modelo / Versão</span>
+                      <span className="font-bold text-slate-800 block">
+                        {selectedAssetForView.model || <span className="text-slate-350">N/D</span>}
+                      </span>
+                    </div>
+
+                    {/* Número de Série */}
+                    <div className="col-span-2 bg-slate-50/40 p-3 rounded-xl border border-slate-100 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Número de Série</span>
+                      <span className="font-mono text-slate-800 font-bold block select-all">
+                        {selectedAssetForView.serialNumber || <span className="text-slate-350">Não informado</span>}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="p-4 border-t border-slate-100 bg-slate-50/40 flex items-center justify-end gap-2.5">
+                  <button
+                    onClick={() => setSelectedAssetForView(null)}
+                    className="px-4 py-2 text-xs font-semibold border border-slate-200 text-slate-550 hover:bg-slate-100 hover:text-slate-700 rounded-xl transition-all cursor-pointer"
+                  >
+                    Fechar
+                  </button>
+                  {canModify && (
+                    <button
+                      onClick={() => {
+                        const assetToEdit = selectedAssetForView;
+                        setSelectedAssetForView(null);
+                        openEditForm(assetToEdit);
+                      }}
+                      className="px-4 py-2 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-750 border border-indigo-150 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Editar Ativo</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
