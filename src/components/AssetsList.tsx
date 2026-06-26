@@ -16,7 +16,9 @@ import {
   X,
   AlertCircle,
   Camera,
-  Maximize2
+  Maximize2,
+  Printer,
+  QrCode
 } from 'lucide-react';
 import { Asset, AssetCategory, AssetStatus, Location, Responsible, User as UserType } from '../types';
 
@@ -59,6 +61,25 @@ export function AssetsList({
   const [errorText, setErrorText] = useState('');
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [selectedAssetForView, setSelectedAssetForView] = useState<Asset | null>(null);
+  const [activeAssetToPrint, setActiveAssetToPrint] = useState<Asset | null>(null);
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const searchParam = params.get('search') || params.get('tag');
+    if (searchParam) {
+      setSearchTerm(searchParam);
+    }
+  }, []);
+
+  const handlePrintLabel = (asset: Asset) => {
+    setActiveAssetToPrint(asset);
+    setTimeout(() => {
+      document.body.classList.add('printing-label');
+      window.print();
+      document.body.classList.remove('printing-label');
+      setActiveAssetToPrint(null);
+    }, 150);
+  };
 
   const [formData, setFormData] = useState({
     name: '',
@@ -540,6 +561,16 @@ export function AssetsList({
                           <td className="p-4">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePrintLabel(asset);
+                                }}
+                                className="p-1.5 rounded-lg bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 border border-slate-200/50 transition-colors cursor-pointer"
+                                title="Imprimir Etiqueta com QR Code"
+                              >
+                                <QrCode className="w-3.5 h-3.5" />
+                              </button>
+                              <button
                                 onClick={() => openEditForm(asset)}
                                 className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-indigo-600 border border-slate-200/50 transition-colors cursor-pointer"
                                 title="Editar Ativo"
@@ -1006,15 +1037,44 @@ export function AssetsList({
 
                 {/* Details Body */}
                 <div className="p-5 space-y-4 text-xs overflow-y-auto max-h-[60vh] md:max-h-[50vh]">
-                  {/* Tag and Barcode Section */}
-                  <div className="bg-slate-50 border border-slate-150 rounded-xl p-3 flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Etiqueta Patrimonial</span>
-                      <span className="font-mono text-sm font-black text-slate-900 mt-0.5 block">{selectedAssetForView.tag}</span>
+                  {/* Tag, Barcode & QR Code Section */}
+                  <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-4 justify-between">
+                    <div className="space-y-3 min-w-0 flex-1 w-full">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Etiqueta Patrimonial</span>
+                        <span className="font-mono text-base font-black text-slate-900 mt-0.5 block">{selectedAssetForView.tag}</span>
+                      </div>
+                      
+                      <button
+                        onClick={() => handlePrintLabel(selectedAssetForView)}
+                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-150 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 select-none"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>Imprimir Etiqueta</span>
+                      </button>
                     </div>
-                    <div className="flex flex-col items-end">
-                      <Barcode className="w-8 h-8 text-slate-400" />
-                      <span className="text-[9px] font-mono font-semibold text-slate-405 mt-0.5">Identificador de Inventário</span>
+
+                    <div className="flex items-center gap-4 bg-white p-2.5 rounded-xl border border-slate-150 shrink-0 w-full sm:w-auto justify-around">
+                      {/* Live QR Code preview */}
+                      <div className="flex flex-col items-center gap-1">
+                        <img 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}/?search=${selectedAssetForView.tag}`)}`}
+                          alt="Ativo QR Code"
+                          className="w-16 h-16 bg-white object-contain cursor-zoom-in hover:scale-105 transition-transform"
+                          referrerPolicy="no-referrer"
+                          onClick={() => setSelectedPhoto(`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${window.location.origin}/?search=${selectedAssetForView.tag}`)}`)}
+                          title="Clique para ampliar o QR Code"
+                        />
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">QR Code</span>
+                      </div>
+
+                      <div className="w-[1px] bg-slate-100 h-12 self-center" />
+
+                      {/* Barcode representation */}
+                      <div className="flex flex-col items-center gap-1">
+                        <Barcode className="w-10 h-10 text-slate-400" />
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Barras</span>
+                      </div>
                     </div>
                   </div>
 
@@ -1124,6 +1184,109 @@ export function AssetsList({
           </div>
         );
       })()}
+
+      {/* Etiqueta Térmica Impressa (Exclusivo para Impressão) */}
+      {activeAssetToPrint && (() => {
+        const loc = locations.find(l => l.id === activeAssetToPrint.locationId);
+        const qrUrl = `${window.location.origin}/?search=${encodeURIComponent(activeAssetToPrint.tag)}`;
+        const qrCodeApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUrl)}`;
+
+        return (
+          <div 
+            id="label-print-area" 
+            className="hidden print:block bg-white text-black p-4 border border-solid border-black rounded-lg max-w-[320px] mx-auto select-none font-sans"
+          >
+            <div className="flex flex-col h-full justify-between">
+              {/* Header */}
+              <div className="border-b-2 border-black pb-1 mb-1.5 flex items-center justify-between">
+                <span className="text-[9px] font-black tracking-widest uppercase text-slate-900">MASTEROP PATRIMONIAL</span>
+                <span className="text-[7px] font-mono font-bold text-slate-500">AUDITORIA SOX</span>
+              </div>
+
+              {/* Main content split */}
+              <div className="flex items-start gap-2.5 flex-1">
+                {/* Left side info */}
+                <div className="flex-1 min-w-0 space-y-1 text-left">
+                  <div>
+                    <span className="text-[7px] font-bold text-slate-500 uppercase block">Ativo</span>
+                    <span className="text-[11px] font-bold text-black leading-tight block truncate" title={activeAssetToPrint.name}>
+                      {activeAssetToPrint.name}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[7px] font-bold text-slate-500 uppercase block">Código Patrimônio</span>
+                    <span className="text-sm font-mono font-black text-black leading-none tracking-tight block">
+                      {activeAssetToPrint.tag}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1 pt-1 border-t border-slate-200">
+                    <div>
+                      <span className="text-[6px] font-bold text-slate-500 uppercase block">Local</span>
+                      <span className="text-[8px] font-bold text-slate-800 block truncate">
+                        {loc ? loc.name : 'N/D'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[6px] font-bold text-slate-500 uppercase block">Série</span>
+                      <span className="text-[8px] font-mono font-bold text-slate-800 block truncate">
+                        {activeAssetToPrint.serialNumber || 'N/D'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right side QR Code */}
+                <div className="flex flex-col items-center gap-1 shrink-0 bg-slate-50 p-1 rounded border border-slate-200">
+                  <img 
+                    src={qrCodeApiUrl} 
+                    alt="Etiqueta QR Code" 
+                    className="w-14 h-14 object-contain"
+                    referrerPolicy="no-referrer"
+                  />
+                  <span className="text-[5px] font-black text-slate-600 tracking-wider">SCAN PARA INFO</span>
+                </div>
+              </div>
+
+              {/* Footer info line */}
+              <div className="border-t border-slate-200 mt-1.5 pt-1 flex items-center justify-between text-[7px] font-mono text-slate-500">
+                <span>Aquisição: {activeAssetToPrint.acquisitionDate?.split('T')[0] || 'N/D'}</span>
+                <span className="font-bold">Val: {formatBRL(activeAssetToPrint.value)}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      <style>{`
+        @media print {
+          /* Hide absolutely everything during single label print */
+          body.printing-label #root > :not(#label-print-area),
+          body.printing-label #asset-detail-modal,
+          body.printing-label nav,
+          body.printing-label header,
+          body.printing-label main {
+            display: none !important;
+          }
+          body.printing-label #label-print-area {
+            display: block !important;
+            position: absolute !important;
+            left: 50% !important;
+            top: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            width: 80mm !important;
+            height: 48mm !important;
+            box-sizing: border-box;
+            background: white !important;
+            color: black !important;
+            border: 1.5px solid #000 !important;
+            padding: 10px !important;
+            margin: 0 !important;
+            page-break-inside: avoid;
+          }
+        }
+      `}</style>
     </div>
   );
 }
