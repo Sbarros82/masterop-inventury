@@ -89,7 +89,13 @@ import {
 
 export default function App() {
   // Navigation tabs
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('search') || params.has('tag')) {
+      return 'assets';
+    }
+    return 'dashboard';
+  });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Connection mode (Defaults to Cloud Firebase Firestore. Toggleable to Local Browser offline storage)

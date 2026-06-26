@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Plus, 
   Search, 
@@ -66,10 +67,16 @@ export function AssetsList({
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const searchParam = params.get('search') || params.get('tag');
-    if (searchParam) {
+    if (searchParam && assets.length > 0) {
       setSearchTerm(searchParam);
+      const matched = assets.find(
+        (a) => a.tag.toLowerCase() === searchParam.toLowerCase() || a.name.toLowerCase().includes(searchParam.toLowerCase())
+      );
+      if (matched) {
+        setSelectedAssetForView(matched);
+      }
     }
-  }, []);
+  }, [assets]);
 
   const handlePrintLabel = (asset: Asset) => {
     setActiveAssetToPrint(asset);
@@ -1186,87 +1193,86 @@ export function AssetsList({
       })()}
 
       {/* Etiqueta Térmica Impressa (Exclusivo para Impressão) */}
-      {activeAssetToPrint && (() => {
-        const loc = locations.find(l => l.id === activeAssetToPrint.locationId);
-        const qrUrl = `${window.location.origin}/?search=${encodeURIComponent(activeAssetToPrint.tag)}`;
-        const qrCodeApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUrl)}`;
+      {activeAssetToPrint && createPortal(
+        (() => {
+          const loc = locations.find(l => l.id === activeAssetToPrint.locationId);
+          const qrUrl = `${window.location.origin}/?search=${encodeURIComponent(activeAssetToPrint.tag)}`;
+          const qrCodeApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUrl)}`;
 
-        return (
-          <div 
-            id="label-print-area" 
-            className="hidden print:block bg-white text-black p-4 border border-solid border-black rounded-lg max-w-[320px] mx-auto select-none font-sans"
-          >
-            <div className="flex flex-col h-full justify-between">
-              {/* Header */}
-              <div className="border-b-2 border-black pb-1 mb-1.5 flex items-center justify-between">
-                <span className="text-[9px] font-black tracking-widest uppercase text-slate-900">MASTEROP PATRIMONIAL</span>
-                <span className="text-[7px] font-mono font-bold text-slate-500">AUDITORIA SOX</span>
-              </div>
+          return (
+            <div 
+              id="label-print-area" 
+              className="hidden print:block bg-white text-black p-4 border border-solid border-black rounded-lg max-w-[320px] mx-auto select-none font-sans"
+            >
+              <div className="flex flex-col h-full justify-between">
+                {/* Header */}
+                <div className="border-b-2 border-black pb-1 mb-1.5 flex items-center justify-between">
+                  <span className="text-[9px] font-black tracking-widest uppercase text-slate-900">MASTEROP PATRIMONIAL</span>
+                  <span className="text-[7px] font-mono font-bold text-slate-500">AUDITORIA SOX</span>
+                </div>
 
-              {/* Main content split */}
-              <div className="flex items-start gap-2.5 flex-1">
-                {/* Left side info */}
-                <div className="flex-1 min-w-0 space-y-1 text-left">
-                  <div>
-                    <span className="text-[7px] font-bold text-slate-500 uppercase block">Ativo</span>
-                    <span className="text-[11px] font-bold text-black leading-tight block truncate" title={activeAssetToPrint.name}>
-                      {activeAssetToPrint.name}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span className="text-[7px] font-bold text-slate-500 uppercase block">Código Patrimônio</span>
-                    <span className="text-sm font-mono font-black text-black leading-none tracking-tight block">
-                      {activeAssetToPrint.tag}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-1 pt-1 border-t border-slate-200">
+                {/* Main content split */}
+                <div className="flex items-start gap-2.5 flex-1">
+                  {/* Left side info */}
+                  <div className="flex-1 min-w-0 space-y-1 text-left">
                     <div>
-                      <span className="text-[6px] font-bold text-slate-500 uppercase block">Local</span>
-                      <span className="text-[8px] font-bold text-slate-800 block truncate">
-                        {loc ? loc.name : 'N/D'}
+                      <span className="text-[7px] font-bold text-slate-500 uppercase block">Ativo</span>
+                      <span className="text-[11px] font-bold text-black leading-tight block truncate" title={activeAssetToPrint.name}>
+                        {activeAssetToPrint.name}
                       </span>
                     </div>
+
                     <div>
-                      <span className="text-[6px] font-bold text-slate-500 uppercase block">Série</span>
-                      <span className="text-[8px] font-mono font-bold text-slate-800 block truncate">
-                        {activeAssetToPrint.serialNumber || 'N/D'}
+                      <span className="text-[7px] font-bold text-slate-500 uppercase block">Código Patrimônio</span>
+                      <span className="text-sm font-mono font-black text-black leading-none tracking-tight block">
+                        {activeAssetToPrint.tag}
                       </span>
                     </div>
+
+                    <div className="grid grid-cols-2 gap-1 pt-1 border-t border-slate-200">
+                      <div>
+                        <span className="text-[6px] font-bold text-slate-500 uppercase block">Local</span>
+                        <span className="text-[8px] font-bold text-slate-800 block truncate">
+                          {loc ? loc.name : 'N/D'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[6px] font-bold text-slate-500 uppercase block">Série</span>
+                        <span className="text-[8px] font-mono font-bold text-slate-800 block truncate">
+                          {activeAssetToPrint.serialNumber || 'N/D'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right side QR Code */}
+                  <div className="flex flex-col items-center gap-1 shrink-0 bg-slate-50 p-1 rounded border border-slate-200">
+                    <img 
+                      src={qrCodeApiUrl} 
+                      alt="Etiqueta QR Code" 
+                      className="w-14 h-14 object-contain"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="text-[5px] font-black text-slate-600 tracking-wider">SCAN PARA INFO</span>
                   </div>
                 </div>
 
-                {/* Right side QR Code */}
-                <div className="flex flex-col items-center gap-1 shrink-0 bg-slate-50 p-1 rounded border border-slate-200">
-                  <img 
-                    src={qrCodeApiUrl} 
-                    alt="Etiqueta QR Code" 
-                    className="w-14 h-14 object-contain"
-                    referrerPolicy="no-referrer"
-                  />
-                  <span className="text-[5px] font-black text-slate-600 tracking-wider">SCAN PARA INFO</span>
+                {/* Footer info line */}
+                <div className="border-t border-slate-200 mt-1.5 pt-1 flex items-center justify-between text-[7px] font-mono text-slate-500">
+                  <span>Aquisição: {activeAssetToPrint.acquisitionDate?.split('T')[0] || 'N/D'}</span>
+                  <span className="font-bold">Val: {formatBRL(activeAssetToPrint.value)}</span>
                 </div>
-              </div>
-
-              {/* Footer info line */}
-              <div className="border-t border-slate-200 mt-1.5 pt-1 flex items-center justify-between text-[7px] font-mono text-slate-500">
-                <span>Aquisição: {activeAssetToPrint.acquisitionDate?.split('T')[0] || 'N/D'}</span>
-                <span className="font-bold">Val: {formatBRL(activeAssetToPrint.value)}</span>
               </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })(),
+        document.body
+      )}
 
       <style>{`
         @media print {
-          /* Hide absolutely everything during single label print */
-          body.printing-label #root > :not(#label-print-area),
-          body.printing-label #asset-detail-modal,
-          body.printing-label nav,
-          body.printing-label header,
-          body.printing-label main {
+          /* Hide absolutely everything inside root during single label print */
+          body.printing-label #root {
             display: none !important;
           }
           body.printing-label #label-print-area {
