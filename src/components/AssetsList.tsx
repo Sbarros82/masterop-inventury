@@ -33,6 +33,43 @@ interface AssetsListProps {
   onDeleteAsset: (id: string) => Promise<void>;
 }
 
+const SimulatedBarcode = ({ value }: { value: string }) => {
+  const generateBars = () => {
+    const bars: boolean[] = [true, false, true];
+    for (let i = 0; i < value.length; i++) {
+      const charCode = value.charCodeAt(i);
+      for (let bit = 0; bit < 5; bit++) {
+        bars.push(((charCode >> bit) & 1) === 1);
+        bars.push(false);
+      }
+    }
+    bars.push(true, false, true);
+    return bars;
+  };
+
+  const bars = generateBars();
+
+  return (
+    <div className="flex flex-col items-center gap-1 bg-white p-1">
+      <svg className="w-36 h-9" viewBox={`0 0 ${bars.length} 40`} preserveAspectRatio="none">
+        {bars.map((isBar, idx) => (
+          isBar && (
+            <rect
+              key={idx}
+              x={idx}
+              y={0}
+              width={1}
+              height={40}
+              fill="black"
+            />
+          )
+        ))}
+      </svg>
+      <span className="font-mono text-[9px] font-black tracking-[0.2em] text-black uppercase">{value}</span>
+    </div>
+  );
+};
+
 export function AssetsList({ 
   assets, 
   locations, 
@@ -70,22 +107,31 @@ export function AssetsList({
     if (searchParam && assets.length > 0) {
       setSearchTerm(searchParam);
       const matched = assets.find(
-        (a) => a.tag.toLowerCase() === searchParam.toLowerCase() || a.name.toLowerCase().includes(searchParam.toLowerCase())
+        (a) => (a.tag && a.tag.toLowerCase() === searchParam.toLowerCase()) || 
+               (a.name && a.name.toLowerCase().includes(searchParam.toLowerCase()))
       );
       if (matched) {
         setSelectedAssetForView(matched);
+      }
+      
+      try {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch (e) {
+        console.error("Failed to clear URL parameter:", e);
       }
     }
   }, [assets]);
 
   const handlePrintLabel = (asset: Asset) => {
     setActiveAssetToPrint(asset);
+    document.body.classList.add('printing-label');
     setTimeout(() => {
-      document.body.classList.add('printing-label');
       window.print();
-      document.body.classList.remove('printing-label');
-      setActiveAssetToPrint(null);
-    }, 150);
+      setTimeout(() => {
+        document.body.classList.remove('printing-label');
+        setActiveAssetToPrint(null);
+      }, 1000);
+    }, 350);
   };
 
   const [formData, setFormData] = useState({
@@ -186,8 +232,10 @@ export function AssetsList({
 
   // Apply filters
   const filteredAssets = assets.filter((asset) => {
-    const matchesSearch = asset.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          asset.tag.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const assetName = asset.name || '';
+    const assetTag = asset.tag || '';
+    const matchesSearch = assetName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          assetTag.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (asset.serialNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesCategory = selectedCategory === 'all' || asset.category === selectedCategory;
@@ -247,6 +295,8 @@ export function AssetsList({
         return { label: 'Transferido', bg: 'bg-indigo-50 text-indigo-600 border-indigo-100' };
       case 'retired':
         return { label: 'Baixado', bg: 'bg-rose-50 text-rose-600 border-rose-100' };
+      default:
+        return { label: 'Desconhecido', bg: 'bg-slate-50 text-slate-600 border-slate-100' };
     }
   };
 
@@ -1195,72 +1245,41 @@ export function AssetsList({
       {/* Etiqueta Térmica Impressa (Exclusivo para Impressão) */}
       {activeAssetToPrint && createPortal(
         (() => {
-          const loc = locations.find(l => l.id === activeAssetToPrint.locationId);
           const qrUrl = `${window.location.origin}/?search=${encodeURIComponent(activeAssetToPrint.tag)}`;
           const qrCodeApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUrl)}`;
 
           return (
             <div 
               id="label-print-area" 
-              className="hidden print:block bg-white text-black p-4 border border-solid border-black rounded-lg max-w-[320px] mx-auto select-none font-sans"
+              className="hidden print:block bg-white text-black p-4 select-none font-sans"
             >
-              <div className="flex flex-col h-full justify-between">
-                {/* Header */}
-                <div className="border-b-2 border-black pb-1 mb-1.5 flex items-center justify-between">
-                  <span className="text-[9px] font-black tracking-widest uppercase text-slate-900">MASTEROP PATRIMONIAL</span>
-                  <span className="text-[7px] font-mono font-bold text-slate-500">AUDITORIA SOX</span>
+              <div className="flex flex-col items-center justify-center border border-solid border-black p-4 rounded-lg bg-white h-[44mm] w-[74mm] box-border">
+                {/* Header title */}
+                <div className="text-[10px] font-black tracking-widest uppercase mb-3 text-center text-black border-b border-black pb-1.5 w-full">
+                  MASTEROP PATRIMONIAL
                 </div>
 
-                {/* Main content split */}
-                <div className="flex items-start gap-2.5 flex-1">
-                  {/* Left side info */}
-                  <div className="flex-1 min-w-0 space-y-1 text-left">
-                    <div>
-                      <span className="text-[7px] font-bold text-slate-500 uppercase block">Ativo</span>
-                      <span className="text-[11px] font-bold text-black leading-tight block truncate" title={activeAssetToPrint.name}>
-                        {activeAssetToPrint.name}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-[7px] font-bold text-slate-500 uppercase block">Código Patrimônio</span>
-                      <span className="text-sm font-mono font-black text-black leading-none tracking-tight block">
-                        {activeAssetToPrint.tag}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-1 pt-1 border-t border-slate-200">
-                      <div>
-                        <span className="text-[6px] font-bold text-slate-500 uppercase block">Local</span>
-                        <span className="text-[8px] font-bold text-slate-800 block truncate">
-                          {loc ? loc.name : 'N/D'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[6px] font-bold text-slate-500 uppercase block">Série</span>
-                        <span className="text-[8px] font-mono font-bold text-slate-800 block truncate">
-                          {activeAssetToPrint.serialNumber || 'N/D'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right side QR Code */}
-                  <div className="flex flex-col items-center gap-1 shrink-0 bg-slate-50 p-1 rounded border border-slate-200">
+                {/* Left QR Code and Right Barcode */}
+                <div className="flex items-center justify-between w-full gap-5">
+                  {/* QR Code */}
+                  <div className="flex flex-col items-center gap-1 shrink-0">
                     <img 
                       src={qrCodeApiUrl} 
-                      alt="Etiqueta QR Code" 
-                      className="w-14 h-14 object-contain"
+                      alt="QR Code" 
+                      className="w-18 h-18 bg-white object-contain border border-black p-0.5"
                       referrerPolicy="no-referrer"
                     />
-                    <span className="text-[5px] font-black text-slate-600 tracking-wider">SCAN PARA INFO</span>
+                    <span className="text-[7px] font-black text-black tracking-wider uppercase mt-1">QR CODE</span>
                   </div>
-                </div>
 
-                {/* Footer info line */}
-                <div className="border-t border-slate-200 mt-1.5 pt-1 flex items-center justify-between text-[7px] font-mono text-slate-500">
-                  <span>Aquisição: {activeAssetToPrint.acquisitionDate?.split('T')[0] || 'N/D'}</span>
-                  <span className="font-bold">Val: {formatBRL(activeAssetToPrint.value)}</span>
+                  {/* Divider line */}
+                  <div className="w-[1px] bg-black h-16 self-center shrink-0" />
+
+                  {/* Barcode representation */}
+                  <div className="flex-1 flex flex-col items-center justify-center min-w-0 shrink-0">
+                    <SimulatedBarcode value={activeAssetToPrint.tag} />
+                    <span className="text-[7px] font-black text-black tracking-wider uppercase mt-1">BARRAS</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1271,25 +1290,33 @@ export function AssetsList({
 
       <style>{`
         @media print {
-          /* Hide absolutely everything inside root during single label print */
-          body.printing-label #root {
-            display: none !important;
+          @page {
+            margin: 0 !important;
+            size: auto;
+          }
+          /* Hide absolutely everything inside root and body during single label print */
+          body.printing-label * {
+            visibility: hidden !important;
+          }
+          /* Show and position only the print area container and its children */
+          body.printing-label #label-print-area,
+          body.printing-label #label-print-area * {
+            visibility: visible !important;
           }
           body.printing-label #label-print-area {
-            display: block !important;
-            position: absolute !important;
-            left: 50% !important;
-            top: 50% !important;
-            transform: translate(-50%, -50%) !important;
-            width: 80mm !important;
-            height: 48mm !important;
-            box-sizing: border-box;
+            display: flex !important;
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            align-items: center !important;
+            justify-content: center !important;
             background: white !important;
-            color: black !important;
-            border: 1.5px solid #000 !important;
-            padding: 10px !important;
+            border: none !important;
+            box-sizing: border-box !important;
+            padding: 0 !important;
             margin: 0 !important;
-            page-break-inside: avoid;
           }
         }
       `}</style>
