@@ -332,6 +332,66 @@ export async function fbWipeAllData(): Promise<void> {
   console.log("Database wiped completely and marked as initialized.");
 }
 
+// Batch synchronize/migrate local offline storage data to Cloud Firestore
+export async function fbSyncLocalData(localDb: {
+  assets: Asset[];
+  locations: Location[];
+  responsibles: Responsible[];
+  movements: AssetMovement[];
+  maintenances: Maintenance[];
+  inventories: Inventory[];
+}): Promise<{ assetsCount: number; locationsCount: number; responsiblesCount: number }> {
+  const batch = writeBatch(db);
+
+  // Sync locations
+  localDb.locations.forEach(loc => {
+    const ref = doc(db, 'locations', loc.id);
+    batch.set(ref, loc);
+  });
+
+  // Sync responsibles
+  localDb.responsibles.forEach(resp => {
+    const ref = doc(db, 'responsibles', resp.id);
+    batch.set(ref, resp);
+  });
+
+  // Sync assets
+  localDb.assets.forEach(asset => {
+    const ref = doc(db, 'assets', asset.id);
+    batch.set(ref, asset);
+  });
+
+  // Sync movements
+  localDb.movements.forEach(mov => {
+    const ref = doc(db, 'movements', mov.id);
+    batch.set(ref, mov);
+  });
+
+  // Sync maintenances
+  localDb.maintenances.forEach(maint => {
+    const ref = doc(db, 'maintenances', maint.id);
+    batch.set(ref, maint);
+  });
+
+  // Sync inventories
+  localDb.inventories.forEach(inv => {
+    const ref = doc(db, 'inventories', inv.id);
+    batch.set(ref, inv);
+  });
+
+  // Mark system as seeded so it doesn't auto-seed default dummy data over it
+  const configDocRef = doc(db, 'system_config', 'init');
+  batch.set(configDocRef, { seeded: true, syncedAt: new Date().toISOString() });
+
+  await batch.commit();
+  
+  return {
+    assetsCount: localDb.assets.length,
+    locationsCount: localDb.locations.length,
+    responsiblesCount: localDb.responsibles.length
+  };
+}
+
 // Read functions wrapped with timeouts
 export async function fbGetAssets(): Promise<Asset[]> {
   return withTimeout((async () => {

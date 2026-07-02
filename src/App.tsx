@@ -84,7 +84,8 @@ import {
   fbScanAsset,
   fbFinishInventory,
   fbGetStats,
-  fbWipeAllData
+  fbWipeAllData,
+  fbSyncLocalData
 } from './utils/firebaseDb';
 
 export default function App() {
@@ -197,6 +198,60 @@ export default function App() {
       setIsLoading(false);
     }
   }
+
+  // Synchronize local database to Cloud Firestore
+  const syncLocalToCloud = async () => {
+    try {
+      setIsLoading(true);
+      setErrorBanner('');
+
+      // Get all local items
+      const localAssets = localGetAssets();
+      const localLocs = localGetLocations();
+      const localResps = localGetResponsibles();
+      const localMovs = localGetMovements();
+      const localMaint = localGetMaintenances();
+      const localInv = localGetInventories();
+
+      if (localAssets.length === 0 && localLocs.length === 0 && localResps.length === 0) {
+        alert("Nenhum dado local foi encontrado para sincronizar.");
+        return;
+      }
+
+      const confirmed = confirm(
+        `Deseja sincronizar seus dados locais com o banco de dados na Nuvem Firestore?\n\n` +
+        `Detectamos salvos neste navegador:\n` +
+        `- Ativos Cadastrados: ${localAssets.length}\n` +
+        `- Unidades Cadastradas: ${localLocs.length}\n` +
+        `- Responsáveis: ${localResps.length}\n\n` +
+        `Isso enviará todos esses registros para a nuvem de forma permanente para que fiquem visíveis no celular e em outros computadores. Os dados existentes na nuvem não serão apagados.`
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      await fbSyncLocalData({
+        assets: localAssets,
+        locations: localLocs,
+        responsibles: localResps,
+        movements: localMovs,
+        maintenances: localMaint,
+        inventories: localInv
+      });
+
+      alert("Sincronização concluída com sucesso! Agora todos os seus dados locais estão gravados na Nuvem e podem ser acessados pelo celular.");
+      
+      // Automatically disable localMode after successful sync to ensure they are on cloud now
+      setLocalMode(false);
+      await refreshAllData();
+    } catch (err: any) {
+      console.error("Failed to sync local to cloud:", err);
+      alert(`Falha ao sincronizar dados: ${err.message || err}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Initial load
   useEffect(() => {
@@ -490,7 +545,7 @@ export default function App() {
               <Menu className="w-5 h-5" />
             </button>
             
-            <div className="flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-2">
               <span className="text-xs font-bold text-slate-400 bg-slate-50 border border-slate-200 rounded px-2 py-0.5">
                 ESTADO ATUAL
               </span>
@@ -500,7 +555,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button 
               onClick={() => {
                 const choice = confirm(
@@ -513,14 +568,15 @@ export default function App() {
                 }
               }}
               title="Clique para alternar entre Banco de Dados Cloud (Sincronizado) e Banco Local (Offline)"
-              className={`hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider cursor-pointer border transition-all duration-200 ${
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider cursor-pointer border transition-all duration-200 ${
                 localMode 
                   ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
                   : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
               }`}
             >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>{localMode ? 'Banco Local (Offline)' : 'Banco Cloud Firestore (Sincronizado)'}</span>
+              <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden md:inline">{localMode ? 'Banco Local (Offline)' : 'Banco Cloud (Sincronizado)'}</span>
+              <span className="inline md:hidden">{localMode ? 'Local (Offline)' : 'Nuvem (Sync)'}</span>
             </button>
 
 
@@ -619,6 +675,8 @@ export default function App() {
                   onUpdateLocation={handleUpdateLocation}
                   onDeleteLocation={handleDeleteLocation}
                   onAddResponsible={handleAddResponsible}
+                  onSyncLocalToCloud={syncLocalToCloud}
+                  isLocalMode={localMode}
                 />
               )}
             </>

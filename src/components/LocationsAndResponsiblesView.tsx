@@ -13,9 +13,12 @@ import {
   X,
   AlertCircle,
   Pencil,
-  Trash2
+  Trash2,
+  Database,
+  UploadCloud
 } from 'lucide-react';
 import { Location, Responsible, User as UserType } from '../types';
+import { getLocalDb } from '../utils/localDb';
 
 interface LocationsAndResponsiblesViewProps {
   locations: Location[];
@@ -25,6 +28,8 @@ interface LocationsAndResponsiblesViewProps {
   onUpdateLocation: (id: string, data: Partial<Location>) => Promise<void>;
   onDeleteLocation: (id: string) => Promise<void>;
   onAddResponsible: (data: Omit<Responsible, 'id'>) => Promise<void>;
+  onSyncLocalToCloud?: () => Promise<void>;
+  isLocalMode?: boolean;
 }
 
 export function LocationsAndResponsiblesView({
@@ -34,7 +39,9 @@ export function LocationsAndResponsiblesView({
   onAddLocation,
   onUpdateLocation,
   onDeleteLocation,
-  onAddResponsible
+  onAddResponsible,
+  onSyncLocalToCloud,
+  isLocalMode = false
 }: LocationsAndResponsiblesViewProps) {
   const [activeSubTab, setActiveSubTab] = useState<'locations' | 'responsibles'>('locations');
   const [isLocModalOpen, setIsLocModalOpen] = useState(false);
@@ -309,6 +316,73 @@ export function LocationsAndResponsiblesView({
           </div>
         </div>
       )}
+
+      {/* SEÇÃO DE SINCRONIZAÇÃO E DIAGNÓSTICO */}
+      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 mt-6 shadow-xs" id="data-sync-diagnostic-panel">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-1.5 max-w-2xl">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-600">
+                <Database className="w-4 h-4 text-indigo-500" />
+              </span>
+              <h3 className="text-sm font-bold text-slate-800">Sincronização entre Dispositivos (Celular & Notebook)</h3>
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              O sistema suporta dois modos de operação. Se você cadastrou dados no Notebook mas eles não aparecem no Celular, 
+              provavelmente você estava utilizando o modo <strong>Banco Local (Offline)</strong> do navegador no Notebook. 
+              Use o botão ao lado para migrar os dados salvos localmente neste computador diretamente para a <strong>Nuvem Cloud Firestore</strong>.
+            </p>
+            {(() => {
+              const localDb = typeof window !== 'undefined' ? getLocalDb() : { assets: [], locations: [], responsibles: [] };
+              const hasLocalData = (localDb.assets && localDb.assets.length > 0) || 
+                                   (localDb.locations && localDb.locations.length > 0) || 
+                                   (localDb.responsibles && localDb.responsibles.length > 0);
+              if (hasLocalData) {
+                return (
+                  <div className="inline-flex items-center gap-2 mt-2 bg-amber-50 border border-amber-250 text-amber-800 text-[11px] px-3 py-1 rounded-lg font-semibold">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                    <span>Encontramos dados locais salvos neste navegador: <strong>{localDb.assets?.length || 0} Ativos, {localDb.locations?.length || 0} Unidades, {localDb.responsibles?.length || 0} Responsáveis</strong>.</span>
+                  </div>
+                );
+              } else {
+                return (
+                  <div className="inline-flex items-center gap-2 mt-2 bg-slate-100 border border-slate-255 text-slate-600 text-[11px] px-3 py-1 rounded-lg font-semibold">
+                    <span>Nenhum dado local pendente detectado neste navegador. Todos os dados recém-cadastrados irão diretamente para a Nuvem.</span>
+                  </div>
+                );
+              }
+            })()}
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0 self-start lg:self-auto">
+            {(() => {
+              const localDb = typeof window !== 'undefined' ? getLocalDb() : { assets: [], locations: [], responsibles: [] };
+              const hasLocalData = (localDb.assets && localDb.assets.length > 0) || 
+                                   (localDb.locations && localDb.locations.length > 0) || 
+                                   (localDb.responsibles && localDb.responsibles.length > 0);
+              if (onSyncLocalToCloud && hasLocalData) {
+                return (
+                  <button
+                    onClick={onSyncLocalToCloud}
+                    className="flex items-center justify-center gap-2 bg-indigo-650 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition-all cursor-pointer"
+                  >
+                    <UploadCloud className="w-4 h-4" />
+                    <span>Migrar para Nuvem</span>
+                  </button>
+                );
+              }
+              return null;
+            })()}
+            
+            <div className="p-3 bg-white border border-slate-200 rounded-xl text-left">
+              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Estado Conexão</span>
+              <span className={`text-xs font-bold mt-0.5 block ${isLocalMode ? 'text-amber-600' : 'text-emerald-600'}`}>
+                {isLocalMode ? 'Banco Local Offline' : 'Nuvem Sincronizada'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* CREATE/EDIT LOCATION MODAL */}
       {isLocModalOpen && (
